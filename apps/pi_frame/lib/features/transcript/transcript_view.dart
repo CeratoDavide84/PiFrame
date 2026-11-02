@@ -823,7 +823,7 @@ class _TranscriptViewState extends ConsumerState<TranscriptView> {
 
   Future<void> _showCostBreakdownDialog(
     BuildContext chipContext,
-    double mainAgentCost,
+    double? mainAgentCost,
     SessionState sessionState,
   ) async {
     final tokens = context.tokens;
@@ -883,26 +883,6 @@ class _TranscriptViewState extends ConsumerState<TranscriptView> {
       }
     }
 
-    if (agentModelCosts.isEmpty) {
-      final entryModels = sessionState.entries
-          .map((e) => e.metadata?['model']?.toString())
-          .whereType<String>()
-          .where((m) => m.isNotEmpty)
-          .toSet();
-      if (sessionState.currentModel != null && sessionState.currentModel!.isNotEmpty) {
-        entryModels.add(sessionState.currentModel!);
-      }
-      if (entryModels.isNotEmpty) {
-        final costPerModel = mainAgentCost / entryModels.length;
-        for (final m in entryModels) {
-          agentModelCosts[m] = costPerModel;
-        }
-      } else {
-        final activeModel = sessionState.currentModel ?? 'Modello Principale';
-        agentModelCosts[activeModel] = mainAgentCost;
-      }
-    }
-
     String formatTokens(int tokens) {
       if (tokens >= 1000000000) {
         return '${(tokens / 1000000000).toStringAsFixed(1)}B tokens';
@@ -922,8 +902,14 @@ class _TranscriptViewState extends ConsumerState<TranscriptView> {
         return StatefulBuilder(
           builder: (ctx, setDialogState) => Consumer(builder: (ctx, dialogRef, _) {
             final subagents = dialogRef.watch(subagentsFamily(sessionState.sessionId));
-            final subagentsCost = subagents.fold<double>(0, (sum, sub) => sum + (sub.cost ?? 0));
-            final totalCost = mainAgentCost + subagentsCost;
+            final agents = subagents.where((sub) => !sub.isUnlinked).toList();
+            final subagentsCost = agents.fold<double>(0, (sum, sub) => sum + (sub.cost ?? 0));
+            final knownSubagentCosts = agents.where((sub) => sub.cost != null).length;
+            final subagentsCostLabel = knownSubagentCosts == 0
+                ? 'N/D'
+                : '${knownSubagentCosts < agents.length ? 'Parziale ' : ''}\$${subagentsCost.toStringAsFixed(4)}';
+            final sessionCostLabel = mainAgentCost == null ? 'N/D' : '\$${mainAgentCost.toStringAsFixed(4)}';
+            final agentCount = agents.length;
             Widget content;
             String title;
             IconData titleIcon;
@@ -948,7 +934,7 @@ class _TranscriptViewState extends ConsumerState<TranscriptView> {
                       children: [
                         Expanded(
                           child: Text(
-                            'Totale Agente Principale',
+                            'Costo riportato da Pi',
                             style: TextStyle(
                               color: tokens.textSecondary,
                               fontSize: 11,
@@ -956,7 +942,7 @@ class _TranscriptViewState extends ConsumerState<TranscriptView> {
                           ),
                         ),
                         Text(
-                          '\$${mainAgentCost.toStringAsFixed(4)}',
+                          sessionCostLabel,
                           style: TextStyle(
                             color: tokens.syntaxString,
                             fontWeight: FontWeight.bold,
@@ -968,6 +954,9 @@ class _TranscriptViewState extends ConsumerState<TranscriptView> {
                     ),
                   ),
                   const SizedBox(height: 8),
+                  if (agentModelCosts.isEmpty)
+                    Text('Costi per modello non disponibili', style: TextStyle(color: tokens.textMuted, fontSize: 11))
+                  else
                   ConstrainedBox(
                     constraints: const BoxConstraints(maxHeight: 280),
                     child: ListView(
@@ -1065,7 +1054,7 @@ class _TranscriptViewState extends ConsumerState<TranscriptView> {
                       children: [
                         Expanded(
                           child: Text(
-                            'Totale Subagenti (${subagents.length})',
+                            'Costi sessioni figlie ($agentCount agenti)',
                             style: TextStyle(
                               color: tokens.textSecondary,
                               fontSize: 11,
@@ -1073,7 +1062,7 @@ class _TranscriptViewState extends ConsumerState<TranscriptView> {
                           ),
                         ),
                         Text(
-                          '\$${subagentsCost.toStringAsFixed(4)}',
+                          subagentsCostLabel,
                           style: TextStyle(
                             color: tokens.syntaxString,
                             fontWeight: FontWeight.bold,
@@ -1107,8 +1096,18 @@ class _TranscriptViewState extends ConsumerState<TranscriptView> {
                           final sub = subagents[i];
                           final subCost = sub.cost != null
                               ? '\$${sub.cost!.toStringAsFixed(4)}'
-                              : '—';
-                          final subModel = sub.model ?? 'default';
+                              : 'N/D';
+                          final subModel = sub.model ?? 'N/D';
+                          if (sub.isUnlinked) {
+                            return Padding(
+                              key: ValueKey('unlinked-session-cost-${sub.id}'),
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                              child: Text(
+                                'Sessione figlia non attribuita: ${sub.name} · $subModel · $subCost',
+                                style: TextStyle(color: tokens.textMuted, fontSize: 11),
+                              ),
+                            );
+                          }
 
                           return Container(
                             key: ValueKey('subagent-cost-item-${sub.id}'),
@@ -1195,7 +1194,7 @@ class _TranscriptViewState extends ConsumerState<TranscriptView> {
                       children: [
                         Expanded(
                           child: Text(
-                            'Costo Totale Sessione',
+                            'Costo riportato da Pi',
                             style: TextStyle(
                               color: tokens.textSecondary,
                               fontSize: 11.5,
@@ -1204,7 +1203,7 @@ class _TranscriptViewState extends ConsumerState<TranscriptView> {
                           ),
                         ),
                         Text(
-                          '\$${totalCost.toStringAsFixed(4)}',
+                          sessionCostLabel,
                           style: TextStyle(
                             color: tokens.syntaxString,
                             fontWeight: FontWeight.bold,
@@ -1217,7 +1216,7 @@ class _TranscriptViewState extends ConsumerState<TranscriptView> {
                   ),
                   const SizedBox(height: 10),
                   Text(
-                    'Seleziona una voce per visualizzare i modelli e i costi specifici:',
+                    'Il costo Pi può già includere i subagenti. Le cifre non vengono sommate.',
                     style: TextStyle(
                       color: tokens.textMuted,
                       fontSize: 10.5,
@@ -1251,7 +1250,7 @@ class _TranscriptViewState extends ConsumerState<TranscriptView> {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Text(
-                                  'Agente Principale',
+                                  'Sessione Pi',
                                   style: TextStyle(
                                     color: tokens.textPrimary,
                                     fontSize: 12,
@@ -1269,7 +1268,7 @@ class _TranscriptViewState extends ConsumerState<TranscriptView> {
                             ),
                           ),
                           Text(
-                            '\$${mainAgentCost.toStringAsFixed(4)}',
+                            sessionCostLabel,
                             style: TextStyle(
                               color: tokens.syntaxString,
                               fontFamily: tokens.monoFontFamily,
@@ -1323,7 +1322,7 @@ class _TranscriptViewState extends ConsumerState<TranscriptView> {
                                   ),
                                 ),
                                 Text(
-                                  '${subagents.length} subagenti eseguiti',
+                                  '$agentCount subagenti identificati',
                                   style: TextStyle(
                                     color: tokens.textMuted,
                                     fontSize: 10,
@@ -1333,7 +1332,7 @@ class _TranscriptViewState extends ConsumerState<TranscriptView> {
                             ),
                           ),
                           Text(
-                            '\$${subagentsCost.toStringAsFixed(4)}',
+                            subagentsCostLabel,
                             style: TextStyle(
                               color: tokens.syntaxString,
                               fontFamily: tokens.monoFontFamily,
@@ -1461,19 +1460,15 @@ class _TranscriptViewState extends ConsumerState<TranscriptView> {
         ? (turnCost != null && turnCost > sessionStatsCost
             ? turnCost
             : sessionStatsCost)
-        : (turnCost ?? 0.0);
+        : turnCost;
     final subagentsCost = subagents.fold<double>(
       0.0,
-      (acc, s) => acc + (s.cost ?? 0.0),
+      (acc, s) => acc + (s.isUnlinked ? 0.0 : s.cost ?? 0.0),
     );
-    final totalSessionCost = mainAgentCost + subagentsCost;
-    final hasAnyCost = (stats?['cost'] != null) ||
-        (sessionState.usage?['cost'] != null) ||
-        subagentsCost > 0;
-    final cost = hasAnyCost ? totalSessionCost : null;
+    final cost = mainAgentCost;
 
     final activeTodoCount = todos.where((t) => !t.isCompleted).length;
-    final runningSubagentCount = subagents.where((s) => s.isRunning).length;
+    final runningSubagentCount = subagents.where((s) => !s.isUnlinked && s.isRunning).length;
 
     final isNewSession = _trackedSessionId != widget.sessionId;
     if (isNewSession) {
@@ -1590,7 +1585,7 @@ class _TranscriptViewState extends ConsumerState<TranscriptView> {
           extensionStatuses,
           subagents,
           todos,
-          mainAgentCost: mainAgentCost.toDouble(),
+          mainAgentCost: mainAgentCost,
           subagentsCost: subagentsCost,
         ),
         if (todos.isNotEmpty || subagents.isNotEmpty)
@@ -1912,7 +1907,7 @@ class _TranscriptViewState extends ConsumerState<TranscriptView> {
     List<MapEntry<String, dynamic>> extensionStatuses,
     List<SubagentItem> subagents,
     List<TodoItem> todos, {
-    double mainAgentCost = 0.0,
+    double? mainAgentCost,
     double subagentsCost = 0.0,
   }) {
     final effectiveSessionName = sessionState.sessionName ?? widget.sessionId;
@@ -2361,7 +2356,7 @@ class _TranscriptViewState extends ConsumerState<TranscriptView> {
                         ),
                         const SizedBox(width: 5),
                         Text(
-                          'Subagenti (${subagents.length})',
+                          'Subagenti (${subagents.where((s) => !s.isUnlinked).length})',
                           style: TextStyle(
                             color: _activeBookTab == _ActiveBookTab.subagents
                                 ? tokens.textPrimary
@@ -2373,7 +2368,7 @@ class _TranscriptViewState extends ConsumerState<TranscriptView> {
                         if (subagentsCost > 0) ...[
                           const SizedBox(width: 5),
                           Text(
-                            '\$${subagentsCost.toStringAsFixed(4)}',
+                            '${subagents.any((s) => !s.isUnlinked && s.cost == null) ? 'Parziale ' : ''}\$${subagentsCost.toStringAsFixed(4)}',
                             style: TextStyle(
                               color: tokens.syntaxString,
                               fontSize: 9.5,

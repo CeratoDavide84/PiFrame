@@ -6,6 +6,18 @@ Questo documento raccoglie diagnosi, cause radice e soluzioni per anomalie note 
 
 ---
 
+## Sottoagenti duplicati o con costo non disponibile
+
+**Sintomo:** una chiamata di lettura del risultato o una notifica di completamento appariva come un altro sottoagente. La sessione figlia, mostrata con un nome come `reviewer#...`, poteva avere un costo separato dalla chiamata originale.
+
+**Correzione:** PiFrame collega la chiamata `Agent` alla sessione figlia usando l'identità disponibile e mostra il nome dell'attività, il costo registrato e il modello effettivo. Le notifiche aggiornano un agente noto, senza crearne uno nuovo. I dati non disponibili restano `N/D`; stime e testo arbitrario non diventano costi effettivi. Se un collegamento è ambiguo, la sessione figlia resta visibile come non attribuita, senza una card agente aggiuntiva.
+
+Il costo riportato da Pi e i costi dei sottoagenti attribuiti sono mostrati separatamente: Pi può già includere i secondi nel primo. La somma attribuita è indicata come parziale quando mancano dati; i costi delle sessioni non attribuite restano separati.
+
+Per applicare una modifica al daemon, ricompilalo insieme all'app e riavvia il daemon solo quando non ci sono worker Pi attivi. Una build della sola app non aggiorna un daemon già in esecuzione.
+
+---
+
 ## Errore "$ pi update --all /bin/sh: pi: command not found [codice 127]"
 
 **Sintomo:** eseguendo un comando Pi dalla sezione *Impostazioni → Pi CLI* (ad es. `pi update --all`) o avviando l'installazione automatica su macOS, il processo terminava immediatamente con l'errore:

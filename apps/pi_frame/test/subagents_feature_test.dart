@@ -512,7 +512,7 @@ void main() {
       expect(textWidget.style?.decoration, TextDecoration.lineThrough);
     });
 
-    testWidgets('Full session cost card and multi-tier dropdown popup', (tester) async {
+    testWidgets('Pi cost is not added to separately reported subagent cost', (tester) async {
       final subagents = [
         const SubagentItem(
           id: 'sub_code_reviewer',
@@ -557,11 +557,12 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      // Total session cost should be 0.0200 + 0.0125 = $0.0325
-      expect(find.textContaining('\$0.0325'), findsOneWidget);
+      // Pi cost may already include subagent usage, so never add them blindly.
+      expect(find.textContaining('\$0.0200'), findsOneWidget);
+      expect(find.textContaining('\$0.0325'), findsNothing);
 
       // Tap on Cost metric chip to open Level 0 breakdown popup
-      await tester.tap(find.textContaining('\$0.0325'));
+      await tester.tap(find.textContaining('\$0.0200'));
       await tester.pumpAndSettle();
 
       expect(find.text('Dettaglio Costi Sessione'), findsOneWidget);
@@ -573,7 +574,8 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Costi Modelli Agente'), findsOneWidget);
-      expect(find.text('claude-3-5-sonnet'), findsWidgets);
+      expect(find.text('Costi per modello non disponibili'), findsOneWidget);
+      expect(find.byKey(const ValueKey('agent-model-cost-claude-3-5-sonnet')), findsNothing);
       expect(find.text('\$0.0200'), findsWidgets);
 
       // Click Back button to return to Level 0
@@ -686,10 +688,11 @@ Full transcript available at: C:\\Temp\\tasks\\05928f01-b805-46c.output
       );
     });
 
-    test('SubagentsNotifier reads Pi subagent estimated cost from task notifications', () {
+    test('SubagentsNotifier does not present an estimate as actual cost', () {
       const taskNotification = '''
 <task-notification>
 <task-id>agent_12345678</task-id>
+<tool-use-id>call_estimated_agent</tool-use-id>
 <status>Done</status>
 <summary>Agent "reviewer" completed</summary>
 <result>Review passed.</result>
@@ -705,6 +708,19 @@ Full transcript available at: C:\\Temp\\tasks\\05928f01-b805-46c.output
                 cwd: '/repo',
                 entries: [
                   SessionEntry(
+                    id: 'launch',
+                    role: 'assistant',
+                    text: '',
+                    timestamp: 900,
+                    toolCalls: [
+                      ToolExecutionState(
+                        toolCallId: 'call_estimated_agent',
+                        toolName: 'Agent',
+                        args: {'subagent_type': 'reviewer'},
+                      ),
+                    ],
+                  ),
+                  SessionEntry(
                     id: 'notification',
                     role: 'assistant',
                     text: taskNotification,
@@ -719,7 +735,7 @@ Full transcript available at: C:\\Temp\\tasks\\05928f01-b805-46c.output
 
       final subagents = container.read(subagentsFamily('estimated_cost_test'));
       expect(subagents, hasLength(1));
-      expect(subagents.single.cost, 0.015);
+      expect(subagents.single.cost, isNull);
     });
 
     test('SubagentsNotifier merges task notification with its worker tool call', () {
@@ -819,7 +835,7 @@ Full transcript available at: C:\\Temp\\tasks\\05928f01-b805-46c.output
       expect(sub.id, 'tool-subagent-1');
       expect(sub.name, 'reviewer');
       expect(sub.description, 'Run native core tests');
-      expect(sub.model, 'gpt-6-luna');
+      expect(sub.model, isNull); // A requested model is not proof of the model used.
       expect(sub.isRunning, isTrue);
 
       // Complete the tool call
@@ -852,7 +868,8 @@ Full transcript available at: C:\\Temp\\tasks\\05928f01-b805-46c.output
       final completedSub = subagentsNotifier.state.first;
       expect(completedSub.isCompleted, isTrue);
       expect(completedSub.output, 'All tests passed');
-      expect(completedSub.cost, 0.0150);
+      // Arbitrary assistant prose is not authoritative subagent billing data.
+      expect(completedSub.cost, isNull);
     });
 
     testWidgets('Missing subagent cost is shown as unavailable, not zero', (tester) async {
@@ -883,7 +900,7 @@ Full transcript available at: C:\\Temp\\tasks\\05928f01-b805-46c.output
       );
 
       await tester.pumpAndSettle();
-      expect(find.text('N/D'), findsOneWidget);
+      expect(find.text('N/D'), findsNWidgets(2)); // Unknown model and cost.
       expect(find.text('\$0.0000'), findsNothing);
     });
 

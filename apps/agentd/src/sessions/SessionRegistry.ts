@@ -277,6 +277,9 @@ export class SessionRegistry {
     output: string;
     status: string;
     description?: string;
+    toolCallId?: string;
+    sessionId?: string;
+    unlinked?: boolean;
   }>> {
     const session = this.getSession(sessionId);
     return this.index.getSubagents(sessionId, session?.sessionFile);

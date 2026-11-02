@@ -5,6 +5,7 @@ import 'package:pi_frame/data/daemon/daemon_providers.dart';
 import 'package:pi_frame/data/daemon/pcp_client.dart';
 import 'package:pi_frame/domain/session/agent_status.dart';
 import 'package:pi_frame/domain/session/session_state.dart';
+import 'package:pi_frame/features/transcript/subagent_panel.dart';
 import 'package:pi_frame/features/transcript/subagents_provider.dart';
 import 'package:pi_frame/features/transcript/transcript_view.dart';
 import 'package:pi_frame_theme/pi_frame_theme.dart';
@@ -13,6 +14,9 @@ class _CostClient extends PcpClient {
   _CostClient() : super(port: 0, token: 'test');
   double cost = 0.0175;
   int calls = 0;
+  String? toolCallId;
+  List<Map<String, dynamic>>? rows;
+  bool fail = false;
 
   @override
   DaemonConnectionState get state => DaemonConnectionState.connected;
@@ -20,9 +24,11 @@ class _CostClient extends PcpClient {
   @override
   Future<List<Map<String, dynamic>>> getSubagents(String sessionId) async {
     calls++;
-    return [
+    if (fail) throw StateError('daemon unavailable');
+    return rows ?? [
       {
         'id': 'worker#1',
+        if (toolCallId != null) 'toolCallId': toolCallId,
         'name': 'Reviewer',
         'model': 'test-model',
         'cost': cost,
@@ -34,6 +40,469 @@ class _CostClient extends PcpClient {
 }
 
 void main() {
+  testWidgets('agent result and notification merge into the launched agent', (
+    tester,
+  ) async {
+    const agentId = 'c44c9b4f-1234-456';
+    final client = _CostClient()
+      ..rows = [
+        {
+          'id': agentId,
+          'name': 'reviewer#c44c9b4f',
+          'toolCallId': 'call-agent',
+          'sessionId': 'child-session',
+          'model': 'actual-model',
+          'cost': 0.0175,
+          'status': 'completed',
+        },
+      ];
+    final container = ProviderContainer(overrides: [
+      pcpClientProvider.overrideWithValue(client),
+      sessionStateFamily('realistic').overrideWith(
+        (ref) => SessionStateNotifier('realistic', null)
+          ..state = const SessionState(
+            sessionId: 'realistic',
+            cwd: '/repo',
+            entries: [
+              SessionEntry(
+                id: 'launch',
+                role: 'assistant',
+                text: '',
+                timestamp: 1000,
+                toolCalls: [
+                  ToolExecutionState(
+                    toolCallId: 'call-agent',
+                    toolName: 'Agent',
+                    args: {
+                      'subagent_type': 'reviewer',
+                      'description': 'Review pending cost changes',
+                    },
+                    output: 'Agent ID: $agentId\nType: reviewer',
+                  ),
+                  ToolExecutionState(
+                    toolCallId: 'call-result',
+                    toolName: 'get_subagent_result',
+                    args: {'agent_id': agentId},
+                    output: 'Type: reviewer | Status: completed | Tool uses: 10',
+                  ),
+                  ToolExecutionState(
+                    toolCallId: 'call-steer',
+                    toolName: 'steer_subagent',
+                    args: {'agent_id': agentId, 'message': 'Continue'},
+                    output: 'Steering message sent',
+                  ),
+                ],
+              ),
+              SessionEntry(
+                id: 'notification',
+                role: 'user',
+                timestamp: 2000,
+                text: '''<task-notification>
+<task-id>$agentId</task-id>
+<tool-use-id>call-agent</tool-use-id>
+<status>Done</status>
+<summary>Agent "Review pending cost changes" completed</summary>
+<result>Review completed.</result>
+</task-notification>''',
+              ),
+            ],
+          ),
+      ),
+    ]);
+    addTearDown(() {
+      container.dispose();
+      client.dispose();
+    });
+    final subscription = container.listen(subagentsFamily('realistic'), (_, _) {});
+    addTearDown(subscription.close);
+    await tester.pump();
+    final children = container.read(subagentsFamily('realistic'));
+    expect(children, hasLength(1));
+    expect(children.single.id, agentId);
+    expect(children.single.name, 'Review pending cost changes');
+    expect(children.single.model, 'actual-model');
+    expect(children.single.cost, 0.0175);
+    expect(children.single.toolCallId, 'call-agent');
+  });
+
+  testWidgets('distinct agents with the same description remain distinct', (
+    tester,
+  ) async {
+    final client = _CostClient()
+      ..rows = [
+        {'id': 'agent-1', 'toolCallId': 'call-1', 'name': 'reviewer#11111111', 'description': 'Review code', 'cost': 0.01, 'status': 'completed'},
+        {'id': 'agent-2', 'toolCallId': 'call-2', 'name': 'reviewer#22222222', 'description': 'Review code', 'cost': 0.02, 'status': 'completed'},
+      ];
+    final container = ProviderContainer(overrides: [
+      pcpClientProvider.overrideWithValue(client),
+      sessionStateFamily('concurrent').overrideWith(
+        (ref) => SessionStateNotifier('concurrent', null)
+          ..state = const SessionState(
+            sessionId: 'concurrent',
+            cwd: '/repo',
+            entries: [
+              SessionEntry(
+                id: 'launches',
+                role: 'assistant',
+                text: '',
+                timestamp: 1000,
+                toolCalls: [
+                  ToolExecutionState(toolCallId: 'call-1', toolName: 'Agent', args: {'description': 'Review code'}),
+                  ToolExecutionState(toolCallId: 'call-2', toolName: 'Agent', args: {'description': 'Review code'}),
+                ],
+              ),
+            ],
+          ),
+      ),
+    ]);
+    addTearDown(() {
+      container.dispose();
+      client.dispose();
+    });
+    final subscription = container.listen(subagentsFamily('concurrent'), (_, _) {});
+    addTearDown(subscription.close);
+    await tester.pump();
+    final agents = container.read(subagentsFamily('concurrent'));
+    expect(agents.map((agent) => agent.id).toSet(), {'agent-1', 'agent-2'});
+    expect(agents.fold<double>(0, (total, agent) => total + agent.cost!), closeTo(0.03, 0.000001));
+  });
+
+  testWidgets('ambiguous child is visible without an extra agent card', (tester) async {
+    final client = _CostClient()
+      ..rows = [
+        {'id': 'agent-1', 'name': 'First agent', 'status': 'completed'},
+        {'id': 'agent-2', 'name': 'Second agent', 'status': 'completed'},
+        {'id': 'child', 'name': 'reviewer#12345678', 'cost': 0.015, 'status': 'completed', 'unlinked': true},
+      ];
+    final container = ProviderContainer(overrides: [
+      pcpClientProvider.overrideWithValue(client),
+      sessionStateFamily('ambiguous').overrideWith(
+        (ref) => SessionStateNotifier('ambiguous', null)
+          ..state = const SessionState(sessionId: 'ambiguous', cwd: '/repo', sessionStats: {'cost': 0.02}),
+      ),
+    ]);
+    addTearDown(() { container.dispose(); client.dispose(); });
+    await tester.pumpWidget(UncontrolledProviderScope(
+      container: container,
+      child: MaterialApp(
+        theme: ThemeData.dark().copyWith(extensions: const [FrameTokens.dark]),
+        home: const Scaffold(body: SubagentsPopDown(sessionId: 'ambiguous')),
+      ),
+    ));
+    await tester.pump();
+    expect(find.text('Subagenti (2)'), findsOneWidget);
+    expect(find.byKey(const ValueKey('subagent-card-agent-1')), findsOneWidget);
+    expect(find.byKey(const ValueKey('subagent-card-agent-2')), findsOneWidget);
+    expect(find.byKey(const ValueKey('subagent-card-child')), findsNothing);
+    expect(find.textContaining('Sessione figlia non attribuita: reviewer#12345678'), findsOneWidget);
+    expect(find.text('Parziale \$0.0150'), findsNothing);
+    await tester.pumpWidget(UncontrolledProviderScope(
+      container: container,
+      child: MaterialApp(
+        theme: ThemeData.dark().copyWith(extensions: const [FrameTokens.dark]),
+        home: const Scaffold(body: TranscriptView(sessionId: 'ambiguous')),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.textContaining('\$0.0200'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('cost-breakdown-subagents-row')));
+    await tester.pumpAndSettle();
+    expect(find.text('Costi sessioni figlie (2 agenti)'), findsOneWidget);
+    expect(find.byKey(const ValueKey('unlinked-session-cost-child')), findsOneWidget);
+    expect(find.byKey(const ValueKey('subagent-cost-item-child')), findsNothing);
+    expect(find.textContaining('Parziale \$0.0150'), findsNothing);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  test('wrapped notification is terminal while parent is active', () {
+    final container = ProviderContainer(overrides: [
+      pcpClientProvider.overrideWithValue(null),
+      sessionStateFamily('wrapped').overrideWith(
+        (ref) => SessionStateNotifier('wrapped', null)
+          ..state = const SessionState(
+            sessionId: 'wrapped',
+            cwd: '/repo',
+            agentStatus: AgentStatus.working,
+            entries: [
+              SessionEntry(
+                id: 'launch', role: 'assistant', text: '', timestamp: 1000,
+                toolCalls: [ToolExecutionState(toolCallId: 'call-wrapped', toolName: 'Agent', args: {'description': 'Review code'})],
+              ),
+              SessionEntry(
+                id: 'notification', role: 'custom', timestamp: 1001,
+                text: '<task-notification><task-id>wrapped-id</task-id><tool-use-id>call-wrapped</tool-use-id><status>WRAPPED UP (TURN LIMIT)</status><summary>Agent finished</summary></task-notification>',
+              ),
+            ],
+          ),
+      ),
+    ]);
+    addTearDown(container.dispose);
+    final subscription = container.listen(subagentsFamily('wrapped'), (_, _) {});
+    addTearDown(subscription.close);
+    final agent = container.read(subagentsFamily('wrapped')).single;
+    expect(agent.status, 'steered');
+    expect(agent.isRunning, isFalse);
+    expect(agent.isCompleted, isTrue);
+  });
+
+  test('steering an active agent keeps it running', () async {
+    final container = ProviderContainer(overrides: [
+      pcpClientProvider.overrideWithValue(null),
+      sessionStateFamily('steer').overrideWith(
+        (ref) => SessionStateNotifier('steer', null)
+          ..state = const SessionState(
+            sessionId: 'steer', cwd: '/repo', agentStatus: AgentStatus.working,
+            activeToolCalls: {
+              'call-steer': ToolExecutionState(
+                toolCallId: 'call-steer', toolName: 'Agent', args: {}, isRunning: true,
+              ),
+            },
+          ),
+      ),
+    ]);
+    addTearDown(container.dispose);
+    final subscription = container.listen(subagentsFamily('steer'), (_, _) {});
+    addTearDown(subscription.close);
+    await container.read(subagentsFamily('steer').notifier).steerSubagent('call-steer', 'Continue');
+    final agent = container.read(subagentsFamily('steer')).single;
+    expect(agent.status, 'steering');
+    expect(agent.isRunning, isTrue);
+    container.read(sessionStateFamily('steer').notifier).state = const SessionState(
+      sessionId: 'steer', cwd: '/repo', agentStatus: AgentStatus.working,
+      entries: [
+        SessionEntry(
+          id: 'launch', role: 'assistant', text: '', timestamp: 1000,
+          toolCalls: [ToolExecutionState(toolCallId: 'call-steer', toolName: 'Agent', args: {})],
+        ),
+        SessionEntry(
+          id: 'done', role: 'custom', timestamp: 1001,
+          text: '<task-notification><task-id>done-agent</task-id><tool-use-id>call-steer</tool-use-id><status>Done</status><summary>Agent finished</summary></task-notification>',
+        ),
+      ],
+    );
+    final completed = container.read(subagentsFamily('steer')).single;
+    expect(completed.status, 'completed');
+    expect(completed.isRunning, isFalse);
+  });
+
+  testWidgets('orphan notifications and workflow tools do not create agents', (
+    tester,
+  ) async {
+    final client = _CostClient()..rows = [];
+    final container = ProviderContainer(overrides: [
+      pcpClientProvider.overrideWithValue(client),
+      sessionStateFamily('nonagents').overrideWith(
+        (ref) => SessionStateNotifier('nonagents', null)
+          ..state = const SessionState(
+            sessionId: 'nonagents',
+            cwd: '/repo',
+            entries: [
+              SessionEntry(
+                id: 'workflow',
+                role: 'assistant',
+                timestamp: 1000,
+                text: '',
+                toolCalls: [
+                  ToolExecutionState(
+                    toolCallId: 'workflow-call',
+                    toolName: 'SubagentWorkflow',
+                    args: {},
+                    output: 'Workflow completed',
+                  ),
+                  ToolExecutionState(
+                    toolCallId: 'status-call',
+                    toolName: 'get_subagent_status',
+                    args: {'subagent_type': 'reviewer'},
+                  ),
+                  ToolExecutionState(
+                    toolCallId: 'config-call',
+                    toolName: 'configure_tool',
+                    args: {'agent_model': 'requested-model'},
+                  ),
+                ],
+              ),
+              SessionEntry(
+                id: 'notification',
+                role: 'user',
+                timestamp: 2000,
+                text: '''<task-notification>
+<task-id>workflow-task</task-id>
+<tool-use-id>workflow-call</tool-use-id>
+<status>Done</status>
+<summary>Workflow completed</summary>
+<result>All work finished.</result>
+</task-notification>''',
+              ),
+            ],
+          ),
+      ),
+    ]);
+    addTearDown(() {
+      container.dispose();
+      client.dispose();
+    });
+    final subscription = container.listen(subagentsFamily('nonagents'), (_, _) {});
+    addTearDown(subscription.close);
+    await tester.pump();
+    expect(container.read(subagentsFamily('nonagents')), isEmpty);
+  });
+
+  testWidgets('agent output and prompt prices are not treated as actual cost', (
+    tester,
+  ) async {
+    final client = _CostClient()..rows = [];
+    final container = ProviderContainer(overrides: [
+      pcpClientProvider.overrideWithValue(client),
+      sessionStateFamily('unknown-cost').overrideWith(
+        (ref) => SessionStateNotifier('unknown-cost', null)
+          ..state = const SessionState(
+            sessionId: 'unknown-cost',
+            cwd: '/repo',
+            entries: [
+              SessionEntry(
+                id: 'launch',
+                role: 'assistant',
+                text: 'Example price: \$12.50',
+                timestamp: 1000,
+                toolCalls: [
+                  ToolExecutionState(
+                    toolCallId: 'call-agent',
+                    toolName: 'Agent',
+                    args: {'subagent_type': 'reviewer', 'cost': 99.0},
+                    output: 'The service cost: \$7.50',
+                  ),
+                ],
+              ),
+            ],
+          ),
+      ),
+    ]);
+    addTearDown(() {
+      container.dispose();
+      client.dispose();
+    });
+    final subscription = container.listen(subagentsFamily('unknown-cost'), (_, _) {});
+    addTearDown(subscription.close);
+    await tester.pump();
+    expect(container.read(subagentsFamily('unknown-cost')).single.cost, isNull);
+  });
+
+  testWidgets('empty successful refresh clears daemon-only children but errors do not', (
+    tester,
+  ) async {
+    final client = _CostClient();
+    final session = SessionStateNotifier('refresh', null)
+      ..state = const SessionState(sessionId: 'refresh', cwd: '/repo');
+    final container = ProviderContainer(overrides: [
+      pcpClientProvider.overrideWithValue(client),
+      sessionStateFamily('refresh').overrideWith((ref) => session),
+    ]);
+    addTearDown(() {
+      container.dispose();
+      client.dispose();
+    });
+    final subscription = container.listen(subagentsFamily('refresh'), (_, _) {});
+    addTearDown(subscription.close);
+    await tester.pump();
+    expect(container.read(subagentsFamily('refresh')), hasLength(1));
+
+    client.fail = true;
+    session.state = session.state.copyWith(agentStatus: AgentStatus.working);
+    await tester.pump();
+    expect(container.read(subagentsFamily('refresh')), hasLength(1));
+
+    client.fail = false;
+    client.rows = [];
+    session.state = session.state.copyWith(agentStatus: AgentStatus.settled);
+    await tester.pump();
+    expect(container.read(subagentsFamily('refresh')), isEmpty);
+  });
+
+  testWidgets('verified child metadata survives parent updates', (tester) async {
+    final client = _CostClient();
+    final session = SessionStateNotifier('metadata', null)
+      ..state = const SessionState(
+        sessionId: 'metadata',
+        cwd: '/repo',
+        currentModel: 'parent-model',
+        entries: [
+          SessionEntry(
+            id: 'tool-entry',
+            role: 'assistant',
+            text: '',
+            timestamp: 0,
+            toolCalls: [
+              ToolExecutionState(
+                toolCallId: 'call-1',
+                toolName: 'Agent',
+                args: {'model': 'requested-model'},
+                output: 'Agent ID: worker#1\nCost: \$0.0100',
+              ),
+            ],
+          ),
+        ],
+      );
+    final container = ProviderContainer(overrides: [
+      pcpClientProvider.overrideWithValue(client),
+      sessionStateFamily('metadata').overrideWith((ref) => session),
+    ]);
+    addTearDown(() {
+      container.dispose();
+      client.dispose();
+    });
+    final subscription = container.listen(subagentsFamily('metadata'), (_, _) {});
+    addTearDown(subscription.close);
+    await tester.pump();
+    expect(container.read(subagentsFamily('metadata')).single.model, 'test-model');
+    expect(container.read(subagentsFamily('metadata')).single.cost, client.cost);
+
+    session.state = session.state.copyWith(sessionStats: const {'cost': 1.0});
+    await tester.pump();
+    final child = container.read(subagentsFamily('metadata')).single;
+    expect(child.model, 'test-model');
+    expect(child.cost, client.cost);
+  });
+
+  testWidgets('daemon links a child to its active call without duplicate cost', (tester) async {
+    final client = _CostClient()..toolCallId = 'running-call';
+    final container = ProviderContainer(overrides: [
+      pcpClientProvider.overrideWithValue(client),
+      sessionStateFamily('linked').overrideWith(
+        (ref) => SessionStateNotifier('linked', null)
+          ..state = const SessionState(
+            sessionId: 'linked',
+            cwd: '/repo',
+            activeToolCalls: {
+              'running-call': ToolExecutionState(
+                toolCallId: 'running-call',
+                toolName: 'Agent',
+                args: {'model': 'requested-model'},
+                isRunning: true,
+              ),
+            },
+          ),
+      ),
+    ]);
+    addTearDown(() {
+      container.dispose();
+      client.dispose();
+    });
+    final subscription = container.listen(subagentsFamily('linked'), (_, _) {});
+    addTearDown(subscription.close);
+    await tester.pump();
+    final children = container.read(subagentsFamily('linked'));
+    expect(children, hasLength(1));
+    expect(children.single.id, 'worker#1');
+    expect(children.single.toolCallId, 'running-call');
+    expect(children.single.model, 'test-model');
+    expect(children.single.cost, client.cost);
+    expect(children.single.isRunning, isTrue);
+    final session = container.read(sessionStateFamily('linked').notifier);
+    session.state = session.state.copyWith(activeToolCalls: const {});
+    await tester.pump();
+  });
+
   testWidgets('daemon costs keep refreshing in cards and the open cost popup', (
     tester,
   ) async {
@@ -74,7 +543,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
     expect(find.text('\$0.0175'), findsWidgets);
 
-    await tester.tap(find.textContaining('\$0.0375'));
+    await tester.tap(find.textContaining('\$0.0200'));
     await tester.pump(const Duration(milliseconds: 300));
     await tester.tap(
       find.byKey(const ValueKey('cost-breakdown-subagents-row')),
@@ -99,14 +568,15 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('cost-breakdown-back-btn')));
     await tester.pump(const Duration(milliseconds: 300));
     expect(
-      find.descendant(of: find.byType(Dialog), matching: find.text('\$0.0625')),
-      findsOneWidget,
+      find.descendant(of: find.byType(Dialog), matching: find.text('\$0.0200')),
+      findsNWidgets(2),
     );
     await tester.tap(find.byKey(const ValueKey('cost-breakdown-close-btn')));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
     expect(find.text('\$0.0425'), findsWidgets);
-    expect(find.textContaining('\$0.0625'), findsOneWidget);
+    expect(find.textContaining('\$0.0200'), findsOneWidget);
+    expect(find.textContaining('\$0.0625'), findsNothing);
 
     // A settled parent with no running children no longer needs polling.
     notifier.state = notifier.state.copyWith(agentStatus: AgentStatus.settled);

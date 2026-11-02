@@ -210,6 +210,34 @@ Download pre-built binaries from the [**GitHub Releases**](https://github.com/Tr
    pi --version
    ```
 
+### Recommended Pi Packages
+
+PiFrame works without these packages. Install the packages for the agent features you want to use.
+
+#### PiFrame agent features
+
+| Package | Feature | Install command |
+| :--- | :--- | :--- |
+| [rpiv-ask-user-question](https://pi.dev/packages/@juicesharp/rpiv-ask-user-question?name=rpiv-ask) | Structured questions and answers. | `pi install npm:@juicesharp/rpiv-ask-user-question` |
+| [pi-subagents](https://pi.dev/packages/@tintinweb/pi-subagents?name=subagents) | Specialized subagents and orchestration. | `pi install npm:@tintinweb/pi-subagents` |
+| [rpiv-todo](https://pi.dev/packages/@juicesharp/rpiv-todo?name=rpiv%20todo) | Agent task lists and progress. | `pi install npm:@juicesharp/rpiv-todo` |
+
+#### Optional additions
+
+| Package | Feature | Install command |
+| :--- | :--- | :--- |
+| [pi-mcp-adapter](https://pi.dev/packages/pi-mcp-adapter) | Connect to MCP servers and discover their tools. | `pi install npm:pi-mcp-adapter` |
+| [pi-web-access](https://pi.dev/packages/pi-web-access) | Web search and content retrieval for the agent. | `pi install npm:pi-web-access` |
+| [pi-caveman](https://pi.dev/packages/pi-caveman) | Concise agent responses. | `pi install npm:pi-caveman` |
+| [ponytail](https://pi.dev/packages/@dietrichgebert/ponytail) | Coding guidance and review skills. | `pi install npm:@dietrichgebert/ponytail` |
+
+Run only the install commands for the packages you need. Then restart the Pi session in PiFrame or run `/reload`.
+Pi installs these packages in its own configuration. They can also affect your Pi terminal sessions.
+
+Review third-party packages before installing them. MCP access also requires configured servers.
+Installing `pi-mcp-adapter` can disable Pi's built-in MCP support and replace it with the adapter.
+PiFrame uses Pi's RPC mode, so some terminal-only package interfaces are unavailable.
+
 ---
 
 ## 🛠 Building from Source

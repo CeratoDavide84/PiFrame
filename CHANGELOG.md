@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.3.0](https://github.com/TrentiStefano/PiFrame/compare/v1.2.0...v1.3.0) (2026-10-31)
+
+
+### Features
+
+* **macos:** add macOS DMG packaging script and Gatekeeper instructions ([b56ea63](https://github.com/TrentiStefano/PiFrame/commit/b56ea63371ef4fb5a12f781a89f8eb9f4b110219))
+* **macos:** add package:macos offline DMG generation script and docs ([895939e](https://github.com/TrentiStefano/PiFrame/commit/895939e15a722060a717afd342e38490dbfefb7a))
+* **macos:** include DMG installation and first-run guide in installer ([9296412](https://github.com/TrentiStefano/PiFrame/commit/92964120edf610b93f4f05feef7b4ddfb7c898aa))
+* **macos:** integrate native custom title bar with window traffic lights ([54ee14c](https://github.com/TrentiStefano/PiFrame/commit/54ee14cd25771c6f23b2460df0362b0590bc780f))
+
+
+### Bug Fixes
+
+* **cli:** resolve macOS environment PATH and support official curl installer with prerequisites ([9bbadbc](https://github.com/TrentiStefano/PiFrame/commit/9bbadbc3796dad33cb5bc18fc8b9bfa63a9e0129))
+* **packaging:** probe login shell PATH and standard Flutter paths in macOS packager ([c3e02b5](https://github.com/TrentiStefano/PiFrame/commit/c3e02b5a3031d4e2fa316034c5b8149ca4c65031))
+
 ## [1.2.0](https://github.com/TrentiStefano/PiFrame/compare/v1.1.1...v1.2.0) (2026-10-30)
 
 

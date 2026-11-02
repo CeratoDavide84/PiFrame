@@ -1,6 +1,6 @@
 {
   "name": "piframe-monorepo",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "private": true,
   "scripts": {
     "setup": "pnpm install && node tools/scripts/setup-flutter.js",

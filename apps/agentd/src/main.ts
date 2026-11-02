@@ -11,7 +11,7 @@ import { SessionRegistry } from './sessions/SessionRegistry.js';
 import { Dispatcher } from './commands/Dispatcher.js';
 import { RemoteManager } from './remote/RemoteManager.js';
 
-const VERSION = '1.2.0'; // x-release-please-version
+const VERSION = '1.3.0'; // x-release-please-version
 
 async function main() {
   console.log(`[agentd] Starting PiFrame Daemon v${VERSION}...`);

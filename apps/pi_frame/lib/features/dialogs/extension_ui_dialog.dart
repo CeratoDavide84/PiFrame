@@ -45,6 +45,7 @@ class _ExtensionUiDialogState extends ConsumerState<ExtensionUiDialog> {
   late TextEditingController _textController;
   final FocusNode _customAnswerFocusNode = FocusNode();
   bool _isCustomAnswerSelected = false;
+  bool _hasEnteredCustomAnswer = false;
   String? _selectedOption;
   final Set<String> _selectedOptions = {};
   Timer? _countdownTimer;
@@ -64,9 +65,32 @@ class _ExtensionUiDialogState extends ConsumerState<ExtensionUiDialog> {
         _secretPlaceholderPrefix,
       );
 
-  bool _isFreeTextOption(String option) =>
-      option.trim().toLowerCase().replaceAll(RegExp(r'[.!?]+$'), '') ==
-      'type something';
+  bool _isFreeTextOption(String option) => RegExp(
+    r'^(?:\d+\.\s*)?type something[.!?]*$',
+    caseSensitive: false,
+  ).hasMatch(option.trim());
+
+  bool _customAnswerNeedsFollowUp(List<String> options) {
+    // The RPC questionnaire interprets these select values as option choices.
+    if (!options.any(
+      (option) =>
+          RegExp(r'^\d+\.\s*').hasMatch(option) && _isFreeTextOption(option),
+    )) {
+      return false;
+    }
+    final answer = _textController.text;
+    final trimmed = answer.trim();
+    if (options.contains(answer)) return true;
+    if (RegExp(r'^\d+\.?$').hasMatch(trimmed)) {
+      final index = int.tryParse(trimmed.replaceFirst(RegExp(r'\.$'), ''));
+      if (index != null && index >= 1 && index <= options.length) return true;
+    }
+    return options.any((option) {
+      final prefix = RegExp(r'^\d+\.\s*').firstMatch(option);
+      return prefix != null &&
+          option.substring(prefix.end).startsWith('$trimmed — ');
+    });
+  }
 
   @override
   void initState() {
@@ -344,7 +368,10 @@ class _ExtensionUiDialogState extends ConsumerState<ExtensionUiDialog> {
                           ? () {
                               if (isFreeTextOption) {
                                 if (!_isCustomAnswerSelected) {
-                                  _textController.clear();
+                                  if (!_hasEnteredCustomAnswer) {
+                                    _textController.clear();
+                                    _hasEnteredCustomAnswer = true;
+                                  }
                                   setState(() {
                                     _isCustomAnswerSelected = true;
                                     _selectedOption = null;
@@ -398,41 +425,47 @@ class _ExtensionUiDialogState extends ConsumerState<ExtensionUiDialog> {
                             ),
                             const SizedBox(width: 8),
                             Expanded(
-                              child: Text(
-                                opt,
-                                style: TextStyle(
-                                  color: tokens.textPrimary,
-                                  fontSize: 13,
-                                ),
-                              ),
+                              child: isFreeTextOption && isSelected
+                                  ? TextField(
+                                      key: const ValueKey(
+                                        'extension-ui-custom-answer',
+                                      ),
+                                      controller: _textController,
+                                      focusNode: _customAnswerFocusNode,
+                                      enabled: !_lockedByOther,
+                                      onChanged: (_) => setState(() {}),
+                                      style: TextStyle(
+                                        color: tokens.textPrimary,
+                                        fontSize: 13,
+                                      ),
+                                      decoration: InputDecoration(
+                                        isDense: true,
+                                        hintText: 'Scrivi la risposta...',
+                                        contentPadding:
+                                            const EdgeInsets.symmetric(
+                                              horizontal: 10,
+                                              vertical: 8,
+                                            ),
+                                        border: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            tokens.radiusSm,
+                                          ),
+                                        ),
+                                      ),
+                                    )
+                                  : Text(
+                                      opt,
+                                      style: TextStyle(
+                                        color: tokens.textPrimary,
+                                        fontSize: 13,
+                                      ),
+                                    ),
                             ),
                           ],
                         ),
                       ),
                     );
                   }),
-                  if (_isCustomAnswerSelected) ...[
-                    const SizedBox(height: 8),
-                    TextField(
-                      key: const ValueKey('extension-ui-custom-answer'),
-                      controller: _textController,
-                      focusNode: _customAnswerFocusNode,
-                      enabled: !_lockedByOther,
-                      onChanged: (_) => setState(() {}),
-                      style: TextStyle(color: tokens.textPrimary, fontSize: 13),
-                      decoration: InputDecoration(
-                        isDense: true,
-                        hintText: 'Type something...',
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 8,
-                        ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(tokens.radiusSm),
-                        ),
-                      ),
-                    ),
-                  ],
                 ] else if (method == 'input') ...[
                   TextField(
                     controller: _textController,
@@ -515,7 +548,11 @@ class _ExtensionUiDialogState extends ConsumerState<ExtensionUiDialog> {
                         _sendResponse(confirmed: true);
                       } else if (method == 'select') {
                         if (_isCustomAnswerSelected) {
-                          _sendResponse(value: _textController.text);
+                          _sendResponse(
+                            value: _customAnswerNeedsFollowUp(options)
+                                ? options.firstWhere(_isFreeTextOption)
+                                : _textController.text,
+                          );
                         } else if (_isMultiSelect) {
                           _sendResponse(value: _selectedOptions.toList());
                         } else {

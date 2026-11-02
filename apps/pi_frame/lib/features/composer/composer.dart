@@ -247,6 +247,28 @@ class _ComposerState extends ConsumerState<Composer> {
     }
   }
 
+  bool _isInteractionRequest(Map<String, dynamic> request) {
+    final method = request['method']?.toString();
+    return request['dialog'] == true ||
+        method == 'confirm' ||
+        method == 'select' ||
+        method == 'input' ||
+        method == 'editor';
+  }
+
+  bool _hasPendingInteractionRequest() {
+    return ref
+        .read(sessionStateFamily(widget.sessionId))
+        .pendingUiRequests
+        .any(
+          (request) =>
+              _isInteractionRequest(request) &&
+              !_dismissedUiRequestIds.contains(
+                request['requestId']?.toString(),
+              ),
+        );
+  }
+
   void _onTextChanged() {
     final text = _controller.text;
     ref.read(composerDraftProvider(widget.sessionId).notifier).state = text;
@@ -357,6 +379,8 @@ class _ComposerState extends ConsumerState<Composer> {
   }
 
   Future<void> _send({String? streamingBehavior}) async {
+    if (_hasPendingInteractionRequest()) return;
+
     final draft = _controller.text;
     final text = draft.trim();
     final attachments = ref.read(composerAttachmentsProvider(widget.sessionId));
@@ -1443,17 +1467,15 @@ class _ComposerState extends ConsumerState<Composer> {
     final isLongPrompt =
         _controller.text.length > 80 || _controller.text.contains('\n');
 
-    final pendingInteractionRequests = pendingUiRequests.where((r) {
-      final method = r['method']?.toString();
-      if (_dismissedUiRequestIds.contains(r['requestId']?.toString())) {
-        return false;
-      }
-      return r['dialog'] == true ||
-          method == 'confirm' ||
-          method == 'select' ||
-          method == 'input' ||
-          method == 'editor';
-    }).toList();
+    final pendingInteractionRequests = pendingUiRequests
+        .where(
+          (request) =>
+              !_dismissedUiRequestIds.contains(
+                request['requestId']?.toString(),
+              ) &&
+              _isInteractionRequest(request),
+        )
+        .toList();
 
     final isShimmerActive =
         isSending ||
@@ -1578,7 +1600,29 @@ class _ComposerState extends ConsumerState<Composer> {
                     width: 1,
                   ),
                 ),
-                child: shouldMinimize
+                child: pendingInteractionRequests.isNotEmpty
+                    ? Padding(
+                        key: const ValueKey('composer-extension-ui-card'),
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: ExtensionUiDialog(
+                          key: ValueKey(
+                            'ext_ui_${pendingInteractionRequests.last['requestId']}',
+                          ),
+                          sessionId: widget.sessionId,
+                          request: pendingInteractionRequests.last,
+                          isCard: true,
+                          onDismissed: () {
+                            if (!mounted) return;
+                            setState(
+                              () => _dismissedUiRequestIds.add(
+                                pendingInteractionRequests.last['requestId']
+                                    .toString(),
+                              ),
+                            );
+                          },
+                        ),
+                      )
+                    : shouldMinimize
                     ? MouseRegion(
                         onEnter: (event) {
                           _minimizedHoverOffsetNotifier.value =
@@ -1614,31 +1658,6 @@ class _ComposerState extends ConsumerState<Composer> {
                     : Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          // Pending model question card docked non-invasively on top of chat input
-                          if (pendingInteractionRequests.isNotEmpty)
-                            Padding(
-                              key: const ValueKey('composer-extension-ui-card'),
-                              padding: const EdgeInsets.only(bottom: 8),
-                              child: ExtensionUiDialog(
-                                key: ValueKey(
-                                  'ext_ui_${pendingInteractionRequests.last['requestId']}',
-                                ),
-                                sessionId: widget.sessionId,
-                                request: pendingInteractionRequests.last,
-                                isCard: true,
-                                onDismissed: () {
-                                  if (!mounted) return;
-                                  setState(
-                                    () => _dismissedUiRequestIds.add(
-                                      pendingInteractionRequests
-                                          .last['requestId']
-                                          .toString(),
-                                    ),
-                                  );
-                                },
-                              ),
-                            ),
-
                           // File Mention overlay if active
                           if (_showFileMentionMenu &&
                               _matchingMentionFiles.isNotEmpty)

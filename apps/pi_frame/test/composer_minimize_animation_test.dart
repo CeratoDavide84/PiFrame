@@ -7,6 +7,7 @@ import 'package:pi_frame/domain/session/session_state.dart';
 import 'package:pi_frame/domain/session/agent_status.dart';
 import 'package:pi_frame/features/composer/composer.dart';
 import 'package:pi_frame/features/transcript/transcript_view.dart';
+import 'package:pi_frame/features/composer/composer_draft.dart';
 import 'package:pi_frame_theme/pi_frame_theme.dart';
 
 void main() {
@@ -50,29 +51,25 @@ void main() {
       expect(find.byKey(const ValueKey('composer-input-area')), findsNothing);
     });
 
-    testWidgets('keeps chat input maximized until a pending question is answered', (tester) async {
+    testWidgets('hides and restores unsent draft while an agent question is pending', (tester) async {
+      const draft = 'Keep this unfinished message';
       final notifier = SessionStateNotifier('s_min_test', null)
         ..state = const SessionState(
           sessionId: 's_min_test',
           cwd: '/test',
           agentStatus: AgentStatus.working,
           streamingTextBlocks: {0: 'Waiting for an answer...'},
-          pendingUiRequests: [
-            {
-              'requestId': 'question-1',
-              'method': 'select',
-              'dialog': true,
-              'title': 'Choose an option',
-              'options': ['Yes', 'No'],
-            },
-          ],
         );
+      final container = ProviderContainer(
+        overrides: [
+          sessionStateFamily('s_min_test').overrideWith((ref) => notifier),
+        ],
+      );
+      addTearDown(container.dispose);
 
       await tester.pumpWidget(
-        ProviderScope(
-          overrides: [
-            sessionStateFamily('s_min_test').overrideWith((ref) => notifier),
-          ],
+        UncontrolledProviderScope(
+          container: container,
           child: MaterialApp(
             theme: ThemeData.dark().copyWith(
               extensions: const [FrameTokens.dark],
@@ -89,24 +86,34 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(find.byKey(const ValueKey('composer-input-area')), findsOneWidget);
-      expect(find.byKey(const ValueKey('composer-minimized-bar')), findsNothing);
-      expect(
-        find.byKey(const ValueKey('composer-extension-ui-card')),
-        findsOneWidget,
-      );
+      await tester.tap(find.byKey(const ValueKey('composer-minimized-bar')));
+      await tester.pumpAndSettle();
+      final composerField = find.byKey(const ValueKey('composer-text-field'));
+      await tester.enterText(composerField, draft);
+      await tester.pump();
+      expect(container.read(composerDraftProvider('s_min_test')), draft);
 
       notifier.state = notifier.state.copyWith(
         agentStatus: AgentStatus.awaitingUser,
         streamingTextBlocks: const {},
+        pendingUiRequests: const [
+          {
+            'requestId': 'question-1',
+            'method': 'select',
+            'dialog': true,
+            'title': 'Choose an option',
+            'options': ['Yes', 'No'],
+          },
+        ],
       );
       await tester.pumpAndSettle();
-      expect(find.byKey(const ValueKey('composer-input-area')), findsOneWidget);
-      expect(find.byKey(const ValueKey('composer-minimized-bar')), findsNothing);
-      expect(
-        find.byKey(const ValueKey('composer-extension-ui-card')),
-        findsOneWidget,
-      );
+      expect(find.byKey(const ValueKey('composer-extension-ui-card')), findsOneWidget);
+      expect(find.byKey(const ValueKey('composer-input-area')), findsNothing);
+      expect(composerField, findsNothing);
+      expect(find.byKey(const ValueKey('composer-send-btn')), findsNothing);
+      tester.testTextInput.enterText('This must not replace the draft');
+      await tester.pump();
+      expect(container.read(composerDraftProvider('s_min_test')), draft);
 
       notifier.state = notifier.state.copyWith(
         agentStatus: AgentStatus.working,
@@ -114,8 +121,9 @@ void main() {
         streamingTextBlocks: const {0: 'Continuing after the answer...'},
       );
       await tester.pumpAndSettle();
-      expect(find.byKey(const ValueKey('composer-minimized-bar')), findsOneWidget);
-      expect(find.byKey(const ValueKey('composer-input-area')), findsNothing);
+      expect(find.byKey(const ValueKey('composer-input-area')), findsOneWidget);
+      expect(tester.widget<TextField>(composerField).controller!.text, draft);
+      expect(container.read(composerDraftProvider('s_min_test')), draft);
     });
 
     testWidgets('shows glowing pointer effect and keeps chat input window minimized during hover < 5s, then expands at >= 5s', (tester) async {

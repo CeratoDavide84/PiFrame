@@ -549,3 +549,31 @@ Su Windows, il kernel blocca la scrittura e la sovrascrittura di qualsiasi file 
    ```powershell
    powershell -ExecutionPolicy Bypass -File tools/scripts/package-windows-installer.ps1 -SkipBuild
    ```
+
+
+---
+
+## 9. Windows: Errore all'Avvio "MSVCP140.dll was not found" su Installazioni Pulite
+
+### Sintomi
+Avviando PiFrame su un'installazione nuova/pulita di Windows 10 o Windows 11 (o all'interno di una macchina virtuale pulita), l'applicazione non si avvia e viene visualizzato il messaggio di sistema:
+```text
+The code execution cannot proceed because MSVCP140.dll was not found. Reinstalling the program may fix this problem.
+```
+Talvolta accompagnato da errori analoghi per `VCRUNTIME140.dll` o `VCRUNTIME140_1.dll`.
+
+### Causa Radice
+Le applicazioni desktop Flutter per Windows e i relativi plugin C++ sono compilati con MSVC (Microsoft Visual Studio C++) e collegano dinamicamente la libreria standard C/C++ (`msvcp140.dll` e `vcruntime140.dll`).
+Nelle installazioni pulite di Windows (a differenza delle macchine degli sviluppatori dove è presente Visual Studio), il pacchetto **Microsoft Visual C++ 2015–2022 Redistributable (x64)** non è preinstallato per impostazione predefinita dal sistema operativo.
+
+### Risoluzione
+1. **Risoluzione immediata sulla macchina / VM di destinazione**:
+   Installa il runtime ufficiale Microsoft Visual C++ 2015-2022 (x64):
+   - Tramite `winget`:
+     ```powershell
+     winget install Microsoft.VCRedist.2015+.x64
+     ```
+   - Oppure scaricando l'eseguibile ufficiale da Microsoft:
+     [https://aka.ms/vs/17/release/vc_redist.x64.exe](https://aka.ms/vs/17/release/vc_redist.x64.exe)
+2. **Risoluzione integrata nel pacchetto (App-Local Deployment)**:
+   Lo script [**`tools/scripts/package-windows-installer.ps1`**](file:///c:/Personale/Repos/PiFrame/PiFrame/tools/scripts/package-windows-installer.ps1) ora include automaticamente le DLL del runtime CRT (`msvcp140.dll`, `vcruntime140.dll`, `vcruntime140_1.dll`, ecc.) direttamente nella directory di release accanto a `PiFrame.exe`. In questo modo, l'installer generato è autosufficiente al 100% e funziona immediatamente anche offline e su ambienti Windows completamente vergini senza richiedere installazioni esterne.

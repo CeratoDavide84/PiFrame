@@ -153,7 +153,44 @@ else {
 }
 
 # Copy Flutter web assets
-Copy-Item (Join-Path $repoRoot 'apps/pi_frame/build/web') (Join-Path $bundle 'web') -Recurse -Force
+$targetWeb = Join-Path $bundle 'web'
+if (Test-Path $targetWeb) {
+    Remove-Item $targetWeb -Recurse -Force
+}
+Copy-Item (Join-Path $repoRoot 'apps/pi_frame/build/web') $targetWeb -Recurse -Force
+
+# Copy Visual C++ CRT runtime DLLs (App-Local deployment for clean Windows installations without VC++ Redistributable)
+$vcRedistDir = $null
+$vsWhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+if (Test-Path $vsWhere) {
+    $vsPath = & $vsWhere -latest -products * -property installationPath
+    if ($vsPath -and (Test-Path $vsPath)) {
+        $redistBase = Join-Path $vsPath 'VC\Redist\MSVC'
+        if (Test-Path $redistBase) {
+            $latestVersion = Get-ChildItem $redistBase -Directory | Where-Object { $_.Name -match '^\d+\.\d+' } | Sort-Object Name -Descending | Select-Object -First 1
+            if ($latestVersion) {
+                $crtDir = Get-ChildItem (Join-Path $latestVersion.FullName 'x64') -Filter 'Microsoft.VC*.CRT' -Directory -ErrorAction SilentlyContinue | Select-Object -First 1
+                if ($crtDir -and (Test-Path $crtDir.FullName)) {
+                    $vcRedistDir = $crtDir.FullName
+                }
+            }
+        }
+    }
+}
+if (!$vcRedistDir) {
+    $candidates = Get-ChildItem -Path "${env:ProgramFiles}\Microsoft Visual Studio", "${env:ProgramFiles(x86)}\Microsoft Visual Studio" -Recurse -Filter "Microsoft.VC*.CRT" -Directory -ErrorAction SilentlyContinue | Where-Object { $_.FullName -like "*x64*" -and $_.FullName -notlike "*onecore*" }
+    if ($candidates) {
+        $vcRedistDir = ($candidates | Select-Object -First 1).FullName
+    }
+}
+if ($vcRedistDir -and (Test-Path $vcRedistDir)) {
+    Write-Host "Staging Visual C++ CRT runtime DLLs (app-local) from: $vcRedistDir" -ForegroundColor Gray
+    Get-ChildItem -Path $vcRedistDir -Filter '*.dll' | ForEach-Object {
+        Copy-Item $_.FullName $bundle -Force
+    }
+} else {
+    Write-Warning "Visual C++ CRT redistributable directory not found. Target systems will require the VC++ 2015-2022 Redistributable installed."
+}
 
 # Verify bundle integrity
 $requiredFiles = @('PiFrame.exe', 'pi-agentd.cjs', 'node.exe', 'NODE-LICENSE.txt', 'web/index.html')

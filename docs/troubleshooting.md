@@ -521,3 +521,31 @@ I pacchetti Debian installati richiedono anche la dipendenza runtime `libnotify4
 2. **Minimizzazione predefinita all'apertura e al cambio di sessione**:
    - Tracciato l'ID di sessione attivo (`_trackedSessionId`); all'apertura iniziale o al cambio sessione (`didUpdateWidget`), `_activeBookTab` viene impostato di default a `_ActiveBookTab.none`.
    - I contatori di task e subagenti attivi vengono sincronizzati con i valori correnti della sessione al caricamento senza innescare auto-espansione, garantendo che le card rimangano normalmente minimizzate lasciando visibile l'intera chat con le pill compatte nella barra superiore.
+
+
+---
+
+## 8. Generazione Installer Windows: Errore Blocco File `node.exe` o `PiFrame.exe` (`IOException` / File in Uso)
+
+### Sintomi
+Durante lo step `[4/4] Staging runtime assets & compiling Inno Setup installer...` eseguendo `pnpm run package:windows` (o richiamando `package-windows-installer.ps1`), la procedura si interrompe con l'errore:
+```text
+Copy-Item : Il processo non può accedere al file '...\apps\pi_frame\build\windows\x64\runner\Release\node.exe' perché è in uso da un altro processo.
+In ...\tools\scripts\package-windows-installer.ps1
++ Copy-Item $nodePath (Join-Path $bundle 'node.exe') -Force
+    + CategoryInfo          : NotSpecified: (:) [Copy-Item], IOException
+    + FullyQualifiedErrorId : System.IO.IOException,Microsoft.PowerShell.Commands.CopyItemCommand
+```
+
+### Causa Radice
+Se `PiFrame.exe` è stato avviato in precedenza dalla cartella di release o durante i test locali, l'app avvia in background il daemon `pi-agentd` sfruttando l'eseguibile `node.exe` presente nella directory `apps/pi_frame/build/windows/x64/runner/Release/`.
+Su Windows, il kernel blocca la scrittura e la sovrascrittura di qualsiasi file `.exe` associato a un processo attivo. Se l'istanza del daemon `node.exe` o l'app `PiFrame.exe` restano attive in background, `Copy-Item` non può sovrascrivere il file. Inoltre, le sessioni locali con WebView2 generavano decine di megabyte di cache temporanea nella cartella `PiFrame.exe.WebView2`, che venivano erroneamente incluse nell'archivio Inno Setup.
+
+### Risoluzione Implementata
+1. **Terminazione automatica dei processi obsoleti**: [**`tools/scripts/package-windows-installer.ps1`**](file:///c:/Personale/Repos/PiFrame/PiFrame/tools/scripts/package-windows-installer.ps1) individua ed arresta automaticamente all'avvio dello staging i processi `node` o `PiFrame` attivi all'interno della directory di release (`$bundle`).
+2. **Retry e tolleranza file identici**: introdotta una logica di retry progressivo; se il file `node.exe` è identico per dimensione all'eseguibile presente nel sistema, la compilazione prosegue segnalando un avviso senza interrompere la generazione del pacchetto.
+3. **Pulizia ed esclusione cache WebView2**: `package-windows-installer.ps1` rimuove `PiFrame.exe.WebView2` prima del packaging e [**`packaging/windows/PiFrame.iss`**](file:///c:/Personale/Repos/PiFrame/PiFrame/packaging/windows/PiFrame.iss) esclude esplicitamente la cartella temporanea (`Excludes: "*.WebView2\*,*.WebView2"`), riducendo notevolmente il peso dell'eseguibile finale.
+4. **Comando rapido di ri-impacchettamento**: se la compilazione Flutter è già stata eseguita con successo, è possibile generare immediatamente l'installer senza ricompilare Flutter eseguendo:
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File tools/scripts/package-windows-installer.ps1 -SkipBuild
+   ```

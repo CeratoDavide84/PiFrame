@@ -73,10 +73,12 @@ if (-not $SkipBuild) {
         Write-Host "`n[3/4] Building Flutter web app (remote access assets)..." -ForegroundColor Yellow
         flutter build web --release --no-web-resources-cdn --dart-define="PI_FRAME_VERSION=$Version"
         if ($LASTEXITCODE -ne 0) { throw "flutter build web failed" }
-    } finally {
+    }
+    finally {
         Pop-Location
     }
-} else {
+}
+else {
     Write-Host "`n[-SkipBuild specified: skipping pnpm and flutter build steps]" -ForegroundColor DarkYellow
 }
 
@@ -85,6 +87,25 @@ Write-Host "`n[4/4] Staging runtime assets & compiling Inno Setup installer..." 
 $bundle = Join-Path $repoRoot 'apps/pi_frame/build/windows/x64/runner/Release'
 if (!(Test-Path $bundle)) {
     throw "Release directory not found: $bundle. Did Flutter build succeed?"
+}
+
+# Terminate any stale processes running from the release bundle directory (e.g. background daemon node.exe or PiFrame.exe)
+Get-Process -Name "node", "PiFrame" -ErrorAction SilentlyContinue | Where-Object {
+    try {
+        $_.Path -and ($_.Path.StartsWith($bundle, [System.StringComparison]::OrdinalIgnoreCase))
+    }
+    catch {
+        $false
+    }
+} | ForEach-Object {
+    Write-Host "Stopping stale process running from release bundle: $($_.ProcessName) (PID $($_.Id))..." -ForegroundColor DarkYellow
+    Stop-Process -Id $_.Id -Force -ErrorAction SilentlyContinue
+}
+
+# Clean up temporary WebView2 runtime user data generated during local app runs
+$webView2Dir = Join-Path $bundle 'PiFrame.exe.WebView2'
+if (Test-Path $webView2Dir) {
+    Remove-Item $webView2Dir -Recurse -Force -ErrorAction SilentlyContinue
 }
 
 # Copy daemon bundle
@@ -99,13 +120,35 @@ if ($nodeCmd) {
 if (!$nodePath -or !(Test-Path $nodePath)) {
     throw "Node.js executable ('node') not found on PATH."
 }
-Copy-Item $nodePath (Join-Path $bundle 'node.exe') -Force
+$targetNode = Join-Path $bundle 'node.exe'
+$copied = $false
+for ($attempt = 1; $attempt -le 3; $attempt++) {
+    try {
+        Copy-Item $nodePath $targetNode -Force
+        $copied = $true
+        break
+    }
+    catch {
+        if ($attempt -lt 3) {
+            Start-Sleep -Milliseconds 500
+        }
+    }
+}
+if (!$copied) {
+    if ((Test-Path $targetNode) -and ((Get-Item $nodePath).Length -eq (Get-Item $targetNode).Length)) {
+        Write-Warning "Could not overwrite '$targetNode' because it is locked by another process, but destination exists and size matches source. Proceeding with existing file."
+    }
+    else {
+        throw "Failed to copy Node executable to '$targetNode'. Ensure no processes (such as PiFrame or node) are running from that directory."
+    }
+}
 
 # Copy Node license
 $nodeLicense = Join-Path (Split-Path $nodePath -Parent) 'LICENSE'
 if (Test-Path $nodeLicense) {
     Copy-Item $nodeLicense (Join-Path $bundle 'NODE-LICENSE.txt') -Force
-} else {
+}
+else {
     "Node.js Runtime License" | Out-File -FilePath (Join-Path $bundle 'NODE-LICENSE.txt') -Encoding utf8
 }
 
@@ -137,6 +180,7 @@ if (Test-Path $expectedInstaller) {
     $sizeMb = [math]::Round($fileInfo.Length / 1MB, 2)
     Write-Host "`n Installer generated successfully!" -ForegroundColor Green
     Write-Host "Location: $expectedInstaller ($sizeMb MB)" -ForegroundColor Cyan
-} else {
+}
+else {
     Write-Host "`n Installer created in: $distDir" -ForegroundColor Green
 }

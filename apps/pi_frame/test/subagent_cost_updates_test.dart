@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -39,7 +41,310 @@ class _CostClient extends PcpClient {
   }
 }
 
+class _SlowSubagentsClient extends PcpClient {
+  _SlowSubagentsClient() : super(port: 0, token: 'test');
+  final response = Completer<List<Map<String, dynamic>>>();
+  int calls = 0;
+
+  @override
+  DaemonConnectionState get state => DaemonConnectionState.connected;
+
+  @override
+  Future<List<Map<String, dynamic>>> getSubagents(String sessionId) {
+    calls++;
+    return response.future;
+  }
+}
+
 void main() {
+  testWidgets('background launch stays active during a slow daemon reply', (tester) async {
+    const launch = SessionEntry(
+      id: 'launch', role: 'assistant', text: '', timestamp: 1000,
+      toolCalls: [ToolExecutionState(
+        toolCallId: 'call-bg', toolName: 'Agent',
+        args: {'description': 'Investigate'},
+        output: 'Agent started in background.\nAgent ID: bg-123\nType: delegate\nYou will be notified when this agent completes.',
+      )],
+    );
+    final client = _SlowSubagentsClient();
+    final session = SessionStateNotifier('background', null)
+      ..state = const SessionState(
+        sessionId: 'background', cwd: '/repo', agentStatus: AgentStatus.settled,
+        entries: [launch],
+      );
+    final container = ProviderContainer(overrides: [
+      pcpClientProvider.overrideWithValue(client),
+      sessionStateFamily('background').overrideWith((ref) => session),
+    ]);
+    final subscription = container.listen(subagentsFamily('background'), (_, _) {});
+    var disposed = false;
+    addTearDown(() {
+      if (!disposed) { subscription.close(); container.dispose(); client.dispose(); }
+    });
+    await tester.pump();
+    expect(container.read(subagentsFamily('background')).single.status, 'running');
+    await tester.pump(const Duration(seconds: 10));
+    expect(client.calls, 1, reason: 'A slow request must not be duplicated');
+    client.response.complete([
+      {'id': 'bg-123', 'toolCallId': 'call-bg', 'status': 'running', 'model': 'actual-model'},
+    ]);
+    await tester.pump();
+    expect(container.read(subagentsFamily('background')).single.model, 'actual-model');
+    expect(container.read(subagentsFamily('background')).single.isRunning, isTrue);
+    session.state = session.state.copyWith(entries: const [
+      launch,
+      SessionEntry(
+        id: 'done', role: 'custom', timestamp: 2000,
+        text: '<task-notification><task-id>bg-123</task-id><tool-use-id>call-bg</tool-use-id><status>Done</status><summary>Agent finished</summary></task-notification>',
+      ),
+    ]);
+    await tester.pump();
+    expect(container.read(subagentsFamily('background')).single.status, 'completed');
+    disposed = true;
+    subscription.close();
+    container.dispose();
+    client.dispose();
+    await tester.pump(const Duration(milliseconds: 1));
+  });
+
+  test('queued launch stays active after the parent settles', () {
+    final container = ProviderContainer(overrides: [
+      pcpClientProvider.overrideWithValue(null),
+      sessionStateFamily('queued').overrideWith(
+        (ref) => SessionStateNotifier('queued', null)
+          ..state = const SessionState(
+            sessionId: 'queued', cwd: '/repo', agentStatus: AgentStatus.settled,
+            entries: [SessionEntry(
+              id: 'launch', role: 'assistant', text: '', timestamp: 1000,
+              toolCalls: [ToolExecutionState(
+                toolCallId: 'call-queued', toolName: 'Agent',
+                output: 'Agent queued in background.\nAgent ID: queued-123\nType: delegate',
+              )],
+            )],
+          ),
+      ),
+    ]);
+    addTearDown(container.dispose);
+    final subscription = container.listen(subagentsFamily('queued'), (_, _) {});
+    addTearDown(subscription.close);
+    expect(container.read(subagentsFamily('queued')).single.isRunning, isTrue);
+  });
+
+  testWidgets('consumed result completes the existing background agent', (tester) async {
+    const agentId = 'result-123';
+    final client = _CostClient()..rows = [
+      {'id': agentId, 'toolCallId': 'call-bg', 'status': 'running'},
+    ];
+    final session = SessionStateNotifier('consumed', null)
+      ..state = const SessionState(
+        sessionId: 'consumed', cwd: '/repo', agentStatus: AgentStatus.settled,
+        entries: [SessionEntry(
+          id: 'launch', role: 'assistant', text: '', timestamp: 1000,
+          toolCalls: [ToolExecutionState(
+            toolCallId: 'call-bg', toolName: 'Agent',
+            output: 'Agent started in background.\nAgent ID: $agentId\nType: delegate',
+          )],
+        )],
+      );
+    final container = ProviderContainer(overrides: [
+      pcpClientProvider.overrideWithValue(client),
+      sessionStateFamily('consumed').overrideWith((ref) => session),
+    ]);
+    final subscription = container.listen(subagentsFamily('consumed'), (_, _) {});
+    var disposed = false;
+    addTearDown(() {
+      if (!disposed) { subscription.close(); container.dispose(); client.dispose(); }
+    });
+    await tester.pump();
+    expect(container.read(subagentsFamily('consumed')).single.isRunning, isTrue);
+    final launch = session.state.entries.single;
+    session.state = session.state.copyWith(entries: [
+      launch,
+      const SessionEntry(
+        id: 'result', role: 'assistant', text: '', timestamp: 2000,
+        toolCalls: [ToolExecutionState(
+          toolCallId: 'call-result', toolName: 'get_subagent_result',
+          args: {'agent_id': agentId},
+          output: 'Agent: $agentId\nType: delegate | Status: completed | Tool uses: 3\nDescription: Investigate\n\nFinished.',
+        )],
+      ),
+    ]);
+    await tester.pump();
+    final agents = container.read(subagentsFamily('consumed'));
+    expect(agents, hasLength(1));
+    expect(agents.single.status, 'completed');
+    disposed = true;
+    subscription.close();
+    container.dispose();
+    client.dispose();
+    await tester.pump(const Duration(milliseconds: 1));
+  });
+
+  testWidgets('background card changes from running to completed on notification', (tester) async {
+    const launch = SessionEntry(
+      id: 'launch', role: 'assistant', text: '', timestamp: 1000,
+      toolCalls: [ToolExecutionState(
+        toolCallId: 'call-card', toolName: 'Agent', args: {'description': 'Investigate'},
+        output: 'Agent started in background.\nAgent ID: card-1\nType: delegate',
+      )],
+    );
+    final session = SessionStateNotifier('card', null)
+      ..state = const SessionState(
+        sessionId: 'card', cwd: '/repo', agentStatus: AgentStatus.settled,
+        entries: [launch],
+      );
+    final container = ProviderContainer(overrides: [
+      pcpClientProvider.overrideWithValue(null),
+      sessionStateFamily('card').overrideWith((ref) => session),
+    ]);
+    addTearDown(container.dispose);
+    await tester.pumpWidget(UncontrolledProviderScope(
+      container: container,
+      child: MaterialApp(
+        theme: ThemeData.dark().copyWith(extensions: const [FrameTokens.dark]),
+        home: const Scaffold(body: SubagentsPopDown(sessionId: 'card')),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.text('In corso'), findsOneWidget);
+    expect(find.text('Completato'), findsNothing);
+    session.state = session.state.copyWith(entries: const [
+      launch,
+      SessionEntry(id: 'done', role: 'custom', timestamp: 2000,
+        text: '<task-notification><task-id>card-1</task-id><tool-use-id>call-card</tool-use-id><status>Done</status><summary>Done</summary></task-notification>'),
+    ]);
+    await tester.pumpAndSettle();
+    expect(find.text('Completato'), findsOneWidget);
+    expect(find.text('In corso'), findsNothing);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(milliseconds: 1));
+  });
+
+  test('batched notifications finish the right agents with distinct statuses', () {
+    final container = ProviderContainer(overrides: [
+      pcpClientProvider.overrideWithValue(null),
+      sessionStateFamily('batch').overrideWith(
+        (ref) => SessionStateNotifier('batch', null)
+          ..state = const SessionState(
+            sessionId: 'batch', cwd: '/repo', agentStatus: AgentStatus.settled,
+            entries: [
+              SessionEntry(
+                id: 'launch', role: 'assistant', text: '', timestamp: 1000,
+                toolCalls: [
+                  ToolExecutionState(toolCallId: 'call-1', toolName: 'Agent',
+                    output: 'Agent started in background.\nAgent ID: batch-1\nType: delegate'),
+                  ToolExecutionState(toolCallId: 'call-2', toolName: 'Agent',
+                    output: 'Agent queued in background.\nAgent ID: batch-2\nType: delegate'),
+                ],
+              ),
+              SessionEntry(
+                id: 'done', role: 'custom', timestamp: 2000,
+                text: '<task-notification><task-id>batch-1</task-id><status>Done</status><summary>Done</summary></task-notification>\n'
+                    '<task-notification><task-id>batch-2</task-id><status>Aborted (max turns exceeded)</status><summary>Aborted</summary></task-notification>',
+              ),
+            ],
+          ),
+      ),
+    ]);
+    addTearDown(container.dispose);
+    final subscription = container.listen(subagentsFamily('batch'), (_, _) {});
+    addTearDown(subscription.close);
+    final agents = container.read(subagentsFamily('batch'));
+    expect(agents, hasLength(2));
+    expect(agents.singleWhere((a) => a.id == 'batch-1').status, 'completed');
+    expect(agents.singleWhere((a) => a.id == 'batch-2').status, 'stopped');
+  });
+
+  test('an old completion does not terminate a resumed background agent', () {
+    final container = ProviderContainer(overrides: [
+      pcpClientProvider.overrideWithValue(null),
+      sessionStateFamily('resumed').overrideWith(
+        (ref) => SessionStateNotifier('resumed', null)
+          ..state = const SessionState(
+            sessionId: 'resumed', cwd: '/repo', agentStatus: AgentStatus.settled,
+            entries: [
+              SessionEntry(id: 'first', role: 'assistant', text: '', timestamp: 1000,
+                toolCalls: [ToolExecutionState(toolCallId: 'call-first', toolName: 'Agent',
+                  output: 'Agent started in background.\nAgent ID: resumed-1\nType: delegate')]),
+              SessionEntry(id: 'done', role: 'custom', timestamp: 2000,
+                text: '<task-notification><task-id>resumed-1</task-id><tool-use-id>call-first</tool-use-id><status>Done</status><summary>Done</summary></task-notification>'),
+              SessionEntry(id: 'resumed', role: 'assistant', text: '', timestamp: 3000,
+                toolCalls: [ToolExecutionState(toolCallId: 'call-resume', toolName: 'Agent',
+                  args: {'resume': 'resumed-1'},
+                  output: 'Agent started in background.\nAgent ID: resumed-1\nType: delegate')]),
+            ],
+          ),
+      ),
+    ]);
+    addTearDown(container.dispose);
+    final subscription = container.listen(subagentsFamily('resumed'), (_, _) {});
+    addTearDown(subscription.close);
+    final agents = container.read(subagentsFamily('resumed'));
+    expect(agents, hasLength(1));
+    expect(agents.single.status, 'running');
+    expect(agents.single.toolCallId, 'call-resume');
+  });
+
+  testWidgets('stale daemon result cannot finish a resumed launch', (tester) async {
+    final client = _CostClient()..rows = [
+      {'id': 'resumed-1', 'toolCallId': 'call-first', 'status': 'completed'},
+    ];
+    final container = ProviderContainer(overrides: [
+      pcpClientProvider.overrideWithValue(client),
+      sessionStateFamily('resumed-stale').overrideWith(
+        (ref) => SessionStateNotifier('resumed-stale', null)
+          ..state = const SessionState(
+            sessionId: 'resumed-stale', cwd: '/repo', agentStatus: AgentStatus.settled,
+            entries: [SessionEntry(id: 'resumed', role: 'assistant', text: '', timestamp: 3000,
+              toolCalls: [ToolExecutionState(toolCallId: 'call-resume', toolName: 'Agent',
+                output: 'Agent started in background.\nAgent ID: resumed-1\nType: delegate')])],
+          ),
+      ),
+    ]);
+    final subscription = container.listen(subagentsFamily('resumed-stale'), (_, _) {});
+    var disposed = false;
+    addTearDown(() {
+      if (!disposed) { subscription.close(); container.dispose(); client.dispose(); }
+    });
+    await tester.pump();
+    final agent = container.read(subagentsFamily('resumed-stale')).single;
+    expect(agent.status, 'running');
+    expect(agent.toolCallId, 'call-resume');
+    disposed = true;
+    subscription.close();
+    container.dispose();
+    client.dispose();
+    await tester.pump(const Duration(milliseconds: 1));
+  });
+
+  for (final (rawStatus, expectedStatus) in [
+    ('error', 'error'), ('stopped', 'stopped'), ('aborted', 'stopped'), ('steered', 'steered'),
+  ]) {
+    test('consumed $rawStatus result updates the existing agent', () {
+      final container = ProviderContainer(overrides: [
+        pcpClientProvider.overrideWithValue(null),
+        sessionStateFamily('result-status').overrideWith(
+          (ref) => SessionStateNotifier('result-status', null)
+            ..state = SessionState(
+              sessionId: 'result-status', cwd: '/repo', agentStatus: AgentStatus.settled,
+              entries: [
+                const SessionEntry(id: 'launch', role: 'assistant', text: '', timestamp: 1000,
+                  toolCalls: [ToolExecutionState(toolCallId: 'call-agent', toolName: 'Agent',
+                    output: 'Agent started in background.\nAgent ID: result-agent\nType: delegate')]),
+                SessionEntry(id: 'result', role: 'assistant', text: '', timestamp: 2000,
+                  toolCalls: [ToolExecutionState(toolCallId: 'call-result', toolName: 'get_subagent_result',
+                    output: 'Agent: result-agent\nType: delegate | Status: $rawStatus | Tool uses: 3\nDescription: Task')]),
+              ],
+            ),
+        ),
+      ]);
+      addTearDown(container.dispose);
+      final subscription = container.listen(subagentsFamily('result-status'), (_, _) {});
+      addTearDown(subscription.close);
+      expect(container.read(subagentsFamily('result-status')).single.status, expectedStatus);
+    });
+  }
+
   testWidgets('agent result and notification merge into the launched agent', (
     tester,
   ) async {

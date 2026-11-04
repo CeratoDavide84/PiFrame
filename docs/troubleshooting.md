@@ -6,6 +6,16 @@ Questo documento raccoglie diagnosi, cause radice e soluzioni per anomalie note 
 
 ---
 
+## Sottoagenti in background mostrati come completati
+
+**Sintomo:** la card indicava subito «Completato», anche se il sottoagente era ancora in esecuzione o in coda.
+
+**Causa:** il ritorno della chiamata `Agent` e la fine della sessione principale venivano confusi con la fine del sottoagente.
+
+**Correzione:** l'avvio in background resta attivo fino a una notifica o a un risultato terminale. Le risposte lente del daemon non sono più scartate dopo quattro secondi. Se il daemon non risponde mai, i metadati non si aggiornano finché la richiesta non viene risolta. Ricompila e riavvia l'app per applicare la modifica.
+
+---
+
 ## Sottoagenti duplicati o con costo non disponibile
 
 **Sintomo:** una chiamata di lettura del risultato o una notifica di completamento appariva come un altro sottoagente. La sessione figlia, mostrata con un nome come `reviewer#...`, poteva avere un costo separato dalla chiamata originale.

@@ -143,23 +143,32 @@ class SubagentsNotifier extends StateNotifier<List<SubagentItem>> {
       if (sessionState == null) return;
       final previousItems = {for (final item in state) item.id: item};
       final Map<String, SubagentItem> itemsMap = {};
-      final notifications = <(TaskNotificationData, int)>[];
+      final notifications = <(TaskNotificationData, int, int)>[];
+      final terminalResults = <String, (String, int)>{};
+      final latestLaunch = <String, int>{};
 
       // Build the agent list from calls and persisted children, not notifications.
-      for (final entry in sessionState.entries) {
-        if (entry.text.contains('<task-notification>')) {
-          final notification = TaskNotificationData.tryParse(entry.text);
-          if (notification != null) notifications.add((notification, entry.timestamp));
+      for (var entryIndex = 0; entryIndex < sessionState.entries.length; entryIndex++) {
+        final entry = sessionState.entries[entryIndex];
+        for (final match in RegExp(
+          r'<task-notification>[\s\S]*?</task-notification>',
+          caseSensitive: false,
+        ).allMatches(entry.text)) {
+          final notification = TaskNotificationData.tryParse(match.group(0)!);
+          if (notification != null) notifications.add((notification, entry.timestamp, entryIndex));
         }
         for (final tool in entry.toolCalls) {
           if (_isSubagentTool(tool)) {
             final subagent = _parseFromTool(tool);
             if (subagent != null) {
+              terminalResults.remove(subagent.id);
               final linked = _findByToolCallId(itemsMap, subagent.toolCallId);
               final existing = linked ?? itemsMap[subagent.id] ??
                   previousItems[subagent.id] ??
                   _findByToolCallId(previousItems, subagent.toolCallId);
               final id = existing?.id ?? subagent.id;
+              latestLaunch[subagent.id] = entryIndex;
+              latestLaunch[id] = entryIndex;
               if (id != subagent.id) itemsMap.remove(subagent.id);
               final status = _locallyStopped.contains(id) ||
                       _locallyStopped.contains(subagent.id)
@@ -185,6 +194,8 @@ class SubagentsNotifier extends StateNotifier<List<SubagentItem>> {
                 isSteeringOpen: isSteeringOpen,
               );
             }
+          } else {
+            _recordTerminalResult(tool, terminalResults, entryIndex);
           }
         }
       }
@@ -224,16 +235,26 @@ class SubagentsNotifier extends StateNotifier<List<SubagentItem>> {
               isSteeringOpen: isSteeringOpen,
             );
           }
+        } else {
+          _recordTerminalResult(tool, terminalResults, sessionState.entries.length);
         }
       }
       // Persisted child metadata wins over requested models and stale tool text.
       _mergeDaemonSubagents(itemsMap);
+      for (final result in terminalResults.entries) {
+        final agent = itemsMap[result.key];
+        if (agent == null) continue;
+        _locallySteered.remove(result.key);
+        itemsMap[result.key] = agent.copyWith(status: result.value.$1);
+      }
 
       // Notifications update an existing agent; they are not agent launches.
-      for (final (notification, timestamp) in notifications) {
+      for (final (notification, timestamp, entryIndex) in notifications) {
         final existing = itemsMap[notification.taskId] ??
             _findByToolCallId(itemsMap, notification.toolUseId);
         if (existing == null) continue;
+        if ((latestLaunch[notification.taskId] ?? latestLaunch[existing.id] ?? -1) > entryIndex ||
+            (terminalResults[notification.taskId]?.$2 ?? -1) > entryIndex) continue;
         final id = existing.id == existing.toolCallId
             ? notification.taskId
             : existing.id;
@@ -245,7 +266,7 @@ class SubagentsNotifier extends StateNotifier<List<SubagentItem>> {
             sessionState.activeToolCalls[existing.toolCallId]?.isRunning == true;
         final status = isActive ? 'running' :
             statusText.contains('error') || statusText.contains('fail') ? 'error' :
-            statusText.contains('stop') || statusText.contains('cancel') ? 'stopped' :
+            statusText.contains('stop') || statusText.contains('cancel') || statusText.contains('abort') ? 'stopped' :
             statusText.contains('wrapped') || statusText.contains('steered') ? 'steered' :
             'completed';
         final summaryName = RegExp(r'Agent\s+"([^"]+)"')
@@ -261,21 +282,6 @@ class SubagentsNotifier extends StateNotifier<List<SubagentItem>> {
         );
       }
 
-      // 3. Reconcile running status: when main agent is not working and no active tools are running,
-      // all subagents that were running must be marked completed!
-      if (sessionState.agentStatus != AgentStatus.working &&
-          sessionState.activeToolCalls.values.where((t) => t.isRunning).isEmpty) {
-        for (final key in itemsMap.keys.toList()) {
-          final item = itemsMap[key]!;
-          final daemonStillRunning = _daemonSubagents.any(
-            (raw) => raw['id'] == key && raw['status'] == 'running',
-          );
-          if (item.isRunning && !daemonStillRunning) {
-            itemsMap[key] = item.copyWith(status: 'completed');
-          }
-        }
-      }
-
       state = itemsMap.values.toList();
       _checkTimer();
     } catch (_) {}
@@ -287,7 +293,8 @@ class SubagentsNotifier extends StateNotifier<List<SubagentItem>> {
     if (client == null || client.state != DaemonConnectionState.connected) return;
     _fetchingFromDaemon = true;
     try {
-      final daemonSubagents = await client.getSubagents(sessionId).timeout(const Duration(seconds: 4));
+      // Keep one request in flight so a slow response is not discarded or duplicated.
+      final daemonSubagents = await client.getSubagents(sessionId);
       if (!mounted) return;
       final nextIds = daemonSubagents.map((raw) => raw['id']).toSet();
       final removedIds = _daemonSubagents
@@ -319,6 +326,9 @@ class SubagentsNotifier extends StateNotifier<List<SubagentItem>> {
       final childSessionId = raw['sessionId']?.toString();
       final linked = _findByToolCallId(itemsMap, toolCallId);
       final existing = itemsMap[id] ?? linked ?? itemsMap[childSessionId];
+      // A response for an earlier run must not overwrite a resumed launch.
+      if (existing != null && toolCallId != null && existing.toolCallId != null &&
+          toolCallId != existing.toolCallId) continue;
       final name = (raw['unlinked'] == true
           ? raw['name'] ?? id
           : raw['description'] ?? existing?.name ?? raw['name'] ?? id).toString();
@@ -405,6 +415,19 @@ class SubagentsNotifier extends StateNotifier<List<SubagentItem>> {
     return null;
   }
 
+  void _recordTerminalResult(
+    ToolExecutionState tool, Map<String, (String, int)> results, int entryIndex,
+  ) {
+    if (tool.toolName.toLowerCase() != 'get_subagent_result' || tool.isRunning || tool.isError) return;
+    final match = RegExp(
+      r'^Agent:\s*([^\r\n]+)\r?\nType:[^\r\n]*\|\s*Status:\s*(completed|error|steered|stopped|aborted)\b',
+      caseSensitive: false,
+    ).firstMatch(tool.output);
+    if (match == null) return;
+    final status = match.group(2)!.toLowerCase();
+    results[match.group(1)!.trim()] = (status == 'aborted' ? 'stopped' : status, entryIndex);
+  }
+
   SubagentItem? _parseFromTool(ToolExecutionState tool) {
     final args = tool.args;
     String id = tool.toolCallId;
@@ -451,12 +474,14 @@ class SubagentsNotifier extends StateNotifier<List<SubagentItem>> {
 
     }
 
-    String status = 'completed';
-    if (tool.isRunning) {
-      status = 'running';
-    } else if (tool.isError) {
-      status = 'error';
-    }
+    final launchedInBackground = tool.toolName.toLowerCase() == 'agent' &&
+        RegExp(r'(^|\n)Agent (started|queued) in background\.', caseSensitive: false)
+            .hasMatch(output);
+    final status = tool.isError
+        ? 'error'
+        : tool.isRunning || launchedInBackground
+        ? 'running'
+        : 'completed';
 
     return SubagentItem(
       id: id,

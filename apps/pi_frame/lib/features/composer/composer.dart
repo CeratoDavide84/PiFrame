@@ -10,6 +10,7 @@ import 'package:window_manager/window_manager.dart';
 import 'package:file_selector/file_selector.dart';
 
 import '../../data/daemon/daemon_providers.dart';
+import '../../data/language/language_settings.dart';
 import '../../domain/session/agent_status.dart';
 import '../../domain/session/attachment_model.dart';
 import '../../domain/session/context_pricing_helper.dart';
@@ -63,6 +64,8 @@ class Composer extends ConsumerStatefulWidget {
 }
 
 class _ComposerState extends ConsumerState<Composer> {
+  String _tr(String it, String en) =>
+      ref.read(appLanguageProvider) == AppLanguage.it ? it : en;
   final _controller = TextEditingController();
   final _focusNode = FocusNode();
   List<Map<String, dynamic>> _availableCommands = [];
@@ -145,7 +148,10 @@ class _ComposerState extends ConsumerState<Composer> {
               Icon(Icons.edit_note, size: 20, color: tokens.accent),
               const SizedBox(width: 8),
               Text(
-                'Modifica messaggio in coda (Steer #${index + 1})',
+                _tr(
+                  'Modifica messaggio in coda (Steer #${index + 1})',
+                  'Edit queued message (Steer #${index + 1})',
+                ),
                 style: TextStyle(
                   color: tokens.textPrimary,
                   fontSize: 14,
@@ -161,7 +167,10 @@ class _ComposerState extends ConsumerState<Composer> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text(
-                  'Modifica il testo del messaggio in coda prima che venga inviato all\'agente:',
+                  _tr(
+                    'Modifica il testo del messaggio in coda prima che venga inviato all\'agente:',
+                    'Edit the queued message before it is sent to the agent:',
+                  ),
                   style: TextStyle(color: tokens.textSecondary, fontSize: 12),
                 ),
                 const SizedBox(height: 10),
@@ -195,18 +204,24 @@ class _ComposerState extends ConsumerState<Composer> {
                 _focusNode.requestFocus();
                 FrameSnackBar.show(
                   context,
-                  message: 'Messaggio caricato nel composer per la modifica',
+                  message: _tr(
+                    'Messaggio caricato nel composer per la modifica',
+                    'Message loaded into the composer for editing',
+                  ),
                   duration: const Duration(seconds: 2),
                 );
               },
               child: Text(
-                'Carica nel composer',
+                _tr('Carica nel composer', 'Load into composer'),
                 style: TextStyle(color: tokens.accent),
               ),
             ),
             TextButton(
               onPressed: () => Navigator.of(dialogCtx).pop(),
-              child: Text('Annulla', style: TextStyle(color: tokens.textMuted)),
+              child: Text(
+                _tr('Annulla', 'Cancel'),
+                style: TextStyle(color: tokens.textMuted),
+              ),
             ),
             FilledButton(
               key: const ValueKey('edit-steer-dialog-save'),
@@ -457,7 +472,10 @@ class _ComposerState extends ConsumerState<Composer> {
       }
     } catch (error) {
       if (mounted && streamingBehavior != null) {
-        FrameSnackBar.show(context, message: 'Invio non riuscito: $error');
+        FrameSnackBar.show(
+          context,
+          message: _tr('Invio non riuscito: $error', 'Send failed: $error'),
+        );
       }
     } finally {
       if (sending.mounted) sending.state = false;
@@ -468,19 +486,22 @@ class _ComposerState extends ConsumerState<Composer> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Verifica la sessione Pi'),
-        content: const Text(
-          'PiFrame rileva Pi interattivo aperto in questa cartella, ma Pi non comunica quale file di sessione usa. '
-          'Continua solo se questa sessione non è aperta nel terminale. Due processi sullo stesso file possono danneggiare la cronologia.',
+        title: Text(_tr('Verifica la sessione Pi', 'Check the Pi session')),
+        content: Text(
+          _tr(
+            'PiFrame rileva Pi interattivo aperto in questa cartella, ma Pi non comunica quale file di sessione usa. '
+                'Continua solo se questa sessione non è aperta nel terminale. Due processi sullo stesso file possono danneggiare la cronologia.',
+            'PiFrame detected interactive Pi in this folder, but Pi does not report which session file it uses. Continue only if this session is not open in the terminal. Two processes using the same file may corrupt the history.',
+          ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Annulla'),
+            child: Text(_tr('Annulla', 'Cancel')),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('Continua qui'),
+            child: Text(_tr('Continua qui', 'Continue here')),
           ),
         ],
       ),
@@ -495,7 +516,10 @@ class _ComposerState extends ConsumerState<Composer> {
       ref.invalidate(sessionStateFamily(widget.sessionId));
     } catch (error) {
       if (mounted) {
-        FrameSnackBar.show(context, message: 'Ripresa non riuscita: $error');
+        FrameSnackBar.show(
+          context,
+          message: _tr('Ripresa non riuscita: $error', 'Resume failed: $error'),
+        );
       }
     }
   }
@@ -505,7 +529,10 @@ class _ComposerState extends ConsumerState<Composer> {
       await action();
     } catch (error) {
       if (mounted) {
-        FrameSnackBar.show(context, message: 'Azione non riuscita: $error');
+        FrameSnackBar.show(
+          context,
+          message: _tr('Azione non riuscita: $error', 'Action failed: $error'),
+        );
       }
     }
   }
@@ -659,7 +686,10 @@ class _ComposerState extends ConsumerState<Composer> {
 
     FrameSnackBar.show(
       context,
-      message: 'Agente interrotto. La coda di messaggi è stata cancellata.',
+      message: _tr(
+        'Agente interrotto. La coda di messaggi è stata cancellata.',
+        'Agent stopped. The message queue was cleared.',
+      ),
       duration: const Duration(seconds: 3),
     );
   }
@@ -797,8 +827,10 @@ class _ComposerState extends ConsumerState<Composer> {
       default:
         FrameSnackBar.show(
           context,
-          message:
-              '/$name è un comando integrato di Pi basato sulla TUI. PiFrame non lo invia al modello, ma non offre ancora questa azione.',
+          message: _tr(
+            '/$name è un comando integrato di Pi basato sulla TUI. PiFrame non lo invia al modello, ma non supporta ancora questa azione.',
+            '/$name is a built-in Pi TUI command. PiFrame does not send it to the model, but this action is not supported yet.',
+          ),
           duration: const Duration(seconds: 5),
         );
     }
@@ -810,7 +842,7 @@ class _ComposerState extends ConsumerState<Composer> {
       return await showDialog<String>(
         context: context,
         builder: (dialogContext) => AlertDialog(
-          title: const Text('Nome sessione'),
+          title: Text(_tr('Nome sessione', 'Session name')),
           content: TextField(
             controller: controller,
             autofocus: true,
@@ -819,11 +851,11 @@ class _ComposerState extends ConsumerState<Composer> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('Annulla'),
+              child: Text(_tr('Annulla', 'Cancel')),
             ),
             FilledButton(
               onPressed: () => Navigator.pop(dialogContext, controller.text),
-              child: const Text('Salva'),
+              child: Text(_tr('Salva', 'Save')),
             ),
           ],
         ),
@@ -859,13 +891,16 @@ class _ComposerState extends ConsumerState<Composer> {
           .toList();
       if (userEntries.isEmpty) {
         throw StateError(
-          'La sessione non contiene messaggi utente da cui creare un fork.',
+          _tr(
+            'La sessione non contiene messaggi utente da cui creare un fork.',
+            'The session has no user messages to fork from.',
+          ),
         );
       }
       entryId = await showDialog<String>(
         context: context,
         builder: (dialogContext) => AlertDialog(
-          title: const Text('Crea un fork'),
+          title: Text(_tr('Crea un fork', 'Create a fork')),
           content: SizedBox(
             width: 460,
             height: 360,
@@ -888,7 +923,7 @@ class _ComposerState extends ConsumerState<Composer> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('Annulla'),
+              child: Text(_tr('Annulla', 'Cancel')),
             ),
           ],
         ),
@@ -912,12 +947,19 @@ class _ComposerState extends ConsumerState<Composer> {
     final selectedId = await showDialog<String>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Riprendi una sessione'),
+        title: Text(_tr('Riprendi una sessione', 'Resume a session')),
         content: SizedBox(
           width: 460,
           height: 360,
           child: sessions.isEmpty
-              ? const Center(child: Text('Nessuna sessione disponibile.'))
+              ? Center(
+                  child: Text(
+                    _tr(
+                      'Nessuna sessione disponibile.',
+                      'No sessions available.',
+                    ),
+                  ),
+                )
               : ListView.builder(
                   itemCount: sessions.length,
                   itemBuilder: (_, index) {
@@ -940,7 +982,7 @@ class _ComposerState extends ConsumerState<Composer> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Annulla'),
+            child: Text(_tr('Annulla', 'Cancel')),
           ),
         ],
       ),
@@ -955,7 +997,7 @@ class _ComposerState extends ConsumerState<Composer> {
     await showDialog<void>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Sessione Pi'),
+        title: Text(_tr('Sessione Pi', 'Pi session')),
         content: SizedBox(
           width: 440,
           child: SingleChildScrollView(
@@ -963,10 +1005,25 @@ class _ComposerState extends ConsumerState<Composer> {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text('Nome: ${state.sessionName ?? '—'}'),
-                Text('Sessione: ${state.sessionId}'),
-                Text('Cartella: ${state.cwd}'),
-                Text('Modello: ${state.currentModel ?? '—'}'),
+                Text(
+                  _tr(
+                    'Nome: ${state.sessionName ?? '—'}',
+                    'Name: ${state.sessionName ?? '—'}',
+                  ),
+                ),
+                Text(
+                  _tr(
+                    'Sessione: ${state.sessionId}',
+                    'Session: ${state.sessionId}',
+                  ),
+                ),
+                Text(_tr('Cartella: ${state.cwd}', 'Folder: ${state.cwd}')),
+                Text(
+                  _tr(
+                    'Modello: ${state.currentModel ?? '—'}',
+                    'Model: ${state.currentModel ?? '—'}',
+                  ),
+                ),
                 Text('Thinking: ${state.currentThinkingLevel ?? '—'}'),
                 const SizedBox(height: 12),
                 for (final entry in stats.entries)
@@ -978,7 +1035,7 @@ class _ComposerState extends ConsumerState<Composer> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Chiudi'),
+            child: Text(_tr('Chiudi', 'Close')),
           ),
         ],
       ),
@@ -998,7 +1055,10 @@ class _ComposerState extends ConsumerState<Composer> {
     if (models.isEmpty) {
       FrameSnackBar.show(
         context,
-        message: 'Nessun modello alternativo disponibile.',
+        message: _tr(
+          'Nessun modello alternativo disponibile.',
+          'No alternative model available.',
+        ),
       );
       return;
     }
@@ -1163,7 +1223,10 @@ class _ComposerState extends ConsumerState<Composer> {
       if (maximum == null || maximum <= 0) {
         FrameSnackBar.show(
           context,
-          message: 'Contesto del modello non disponibile. Riprova quando il daemon è connesso.',
+          message: _tr(
+            'Contesto del modello non disponibile. Riprova quando il daemon è connesso.',
+            'Model context unavailable. Try again when the daemon is connected.',
+          ),
         );
         return;
       }
@@ -1178,7 +1241,7 @@ class _ComposerState extends ConsumerState<Composer> {
             borderRadius: BorderRadius.circular(tokens.radiusMd),
             side: BorderSide(color: tokens.borderStrong),
           ),
-          title: const Text('Dimensione Contesto'),
+          title: Text(_tr('Dimensione Contesto', 'Context size')),
           content: SizedBox(
             width: 340,
             child: SingleChildScrollView(
@@ -1188,7 +1251,7 @@ class _ComposerState extends ConsumerState<Composer> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('Chiudi'),
+              child: Text(_tr('Chiudi', 'Close')),
             ),
           ],
         ),
@@ -1197,7 +1260,10 @@ class _ComposerState extends ConsumerState<Composer> {
       if (mounted) {
         FrameSnackBar.show(
           context,
-          message: 'Selezione contesto non riuscita: $error',
+          message: _tr(
+            'Selezione contesto non riuscita: $error',
+            'Context selection failed: $error',
+          ),
         );
       }
     } finally {
@@ -1208,7 +1274,10 @@ class _ComposerState extends ConsumerState<Composer> {
   Widget _buildAttachButton(FrameTokens tokens) {
     return PopupMenuButton<String>(
       key: const ValueKey('composer-attach-popup-btn'),
-      tooltip: 'Allega file, link o immagine',
+      tooltip: _tr(
+        'Allega file, link o immagine',
+        'Attach a file, link or image',
+      ),
       icon: Icon(Icons.attach_file, size: 17, color: tokens.textSecondary),
       padding: EdgeInsets.zero,
       constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
@@ -1232,7 +1301,7 @@ class _ComposerState extends ConsumerState<Composer> {
               const SizedBox(width: 8),
               Flexible(
                 child: Text(
-                  'File dal repository',
+                  _tr('File dal repository', 'File from repository'),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(color: tokens.textPrimary, fontSize: 12.5),
@@ -1257,7 +1326,7 @@ class _ComposerState extends ConsumerState<Composer> {
               const SizedBox(width: 8),
               Flexible(
                 child: Text(
-                  'File esterno',
+                  _tr('File esterno', 'External file'),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(color: tokens.textPrimary, fontSize: 12.5),
@@ -1278,7 +1347,7 @@ class _ComposerState extends ConsumerState<Composer> {
               const SizedBox(width: 8),
               Flexible(
                 child: Text(
-                  'Link web',
+                  _tr('Link web', 'Web link'),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(color: tokens.textPrimary, fontSize: 12.5),
@@ -1299,7 +1368,7 @@ class _ComposerState extends ConsumerState<Composer> {
               const SizedBox(width: 8),
               Flexible(
                 child: Text(
-                  'Immagine',
+                  _tr('Immagine', 'Image'),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(color: tokens.textPrimary, fontSize: 12.5),
@@ -1314,6 +1383,7 @@ class _ComposerState extends ConsumerState<Composer> {
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(appLanguageProvider);
     final tokens = context.tokens;
     final screenWidth = MediaQuery.sizeOf(context).width;
     final bottomPadding = MediaQuery.paddingOf(context).bottom;
@@ -1383,8 +1453,14 @@ class _ComposerState extends ConsumerState<Composer> {
           children: [
             Text(
               readOnlyReason == 'terminal'
-                  ? 'Pi ha una sessione interattiva aperta in questa cartella. Duplica per evitare scritture concorrenti.'
-                  : 'PiFrame non può verificare che questa sessione sia chiusa. Duplica per continuare in sicurezza.',
+                  ? _tr(
+                      'Pi ha una sessione interattiva aperta in questa cartella. Duplica per evitare scritture concorrenti.',
+                      'Pi has an interactive session open in this folder. Duplicate it to avoid concurrent writes.',
+                    )
+                  : _tr(
+                      'PiFrame non può verificare che questa sessione sia chiusa. Duplica per continuare in sicurezza.',
+                      'PiFrame cannot verify that this session is closed. Duplicate it to continue safely.',
+                    ),
               style: TextStyle(color: tokens.textSecondary),
             ),
             const SizedBox(height: 8),
@@ -1395,14 +1471,16 @@ class _ComposerState extends ConsumerState<Composer> {
                 if (readOnlyReason == 'unknown') ...[
                   TextButton.icon(
                     icon: const Icon(Icons.play_arrow),
-                    label: const Text('Continua qui'),
+                    label: Text(_tr('Continua qui', 'Continue here')),
                     onPressed: _continueAmbiguousSession,
                   ),
                   const SizedBox(width: 8),
                 ],
                 TextButton.icon(
                   icon: const Icon(Icons.copy_outlined),
-                  label: const Text('Duplica e continua'),
+                  label: Text(
+                    _tr('Duplica e continua', 'Duplicate and continue'),
+                  ),
                   onPressed: () async {
                     try {
                       final client = ref.read(pcpClientProvider);
@@ -1438,7 +1516,10 @@ class _ComposerState extends ConsumerState<Composer> {
                       if (context.mounted) {
                         FrameSnackBar.show(
                           context,
-                          message: 'Duplicazione non riuscita: $error',
+                          message: _tr(
+                            'Duplicazione non riuscita: $error',
+                            'Duplication failed: $error',
+                          ),
                         );
                       }
                     }
@@ -1716,7 +1797,10 @@ class _ComposerState extends ConsumerState<Composer> {
                                       const SizedBox(width: 8),
                                       Expanded(
                                         child: Text(
-                                          'In coda ($totalQueued): ${steeringQueue.length} steer, ${followUpQueue.length} follow-up',
+                                          _tr(
+                                            'In coda ($totalQueued): ${steeringQueue.length} steer, ${followUpQueue.length} follow-up',
+                                            'Queued ($totalQueued): ${steeringQueue.length} steer, ${followUpQueue.length} follow-up',
+                                          ),
                                           style: TextStyle(
                                             color: tokens.textSecondary,
                                             fontSize: 12,
@@ -1729,8 +1813,14 @@ class _ComposerState extends ConsumerState<Composer> {
                                             'composer-queue-toggle-expand',
                                           ),
                                           tooltip: _queueExpanded
-                                              ? 'Nascondi messaggi in coda'
-                                              : 'Mostra messaggi in coda',
+                                              ? _tr(
+                                                  'Nascondi messaggi in coda',
+                                                  'Hide queued messages',
+                                                )
+                                              : _tr(
+                                                  'Mostra messaggi in coda',
+                                                  'Show queued messages',
+                                                ),
                                           icon: Icon(
                                             _queueExpanded
                                                 ? Icons.keyboard_arrow_up
@@ -1759,7 +1849,7 @@ class _ComposerState extends ConsumerState<Composer> {
                                           color: tokens.textMuted,
                                         ),
                                         label: Text(
-                                          'Svuota coda',
+                                          _tr('Svuota coda', 'Clear queue'),
                                           style: TextStyle(
                                             color: tokens.textMuted,
                                             fontSize: 11,
@@ -1843,7 +1933,10 @@ class _ComposerState extends ConsumerState<Composer> {
                                               key: ValueKey(
                                                 'edit-steer-btn-$i',
                                               ),
-                                              tooltip: 'Modifica messaggio steer in coda',
+                                              tooltip: _tr(
+                                                'Modifica messaggio steer in coda',
+                                                'Edit queued steer message',
+                                              ),
                                               icon: Icon(
                                                 Icons.edit_outlined,
                                                 size: 14,
@@ -1865,7 +1958,10 @@ class _ComposerState extends ConsumerState<Composer> {
                                               key: ValueKey(
                                                 'delete-steer-btn-$i',
                                               ),
-                                              tooltip: 'Elimina dalla coda',
+                                              tooltip: _tr(
+                                                'Elimina dalla coda',
+                                                'Remove from queue',
+                                              ),
                                               icon: Icon(
                                                 Icons.close,
                                                 size: 14,
@@ -1907,7 +2003,10 @@ class _ComposerState extends ConsumerState<Composer> {
                                   const SizedBox(width: 8),
                                   Expanded(
                                     child: Text(
-                                      'Il worker Pi è terminato inaspettatamente. Nessun comando è stato re-inviato automaticamente.',
+                                      _tr(
+                                        'Il worker Pi è terminato inaspettatamente. Nessun comando è stato re-inviato automaticamente.',
+                                        'The Pi worker stopped unexpectedly. No commands were automatically resent.',
+                                      ),
                                       style: TextStyle(
                                         color: tokens.danger,
                                         fontSize: 12,
@@ -1927,9 +2026,12 @@ class _ComposerState extends ConsumerState<Composer> {
                                       minimumSize: Size.zero,
                                     ),
                                     icon: const Icon(Icons.refresh, size: 14),
-                                    label: const Text(
-                                      'Riprendi sessione',
-                                      style: TextStyle(
+                                    label: Text(
+                                      _tr(
+                                        'Riprendi sessione',
+                                        'Resume session',
+                                      ),
+                                      style: const TextStyle(
                                         fontSize: 12,
                                         fontWeight: FontWeight.bold,
                                       ),
@@ -2059,8 +2161,14 @@ class _ComposerState extends ConsumerState<Composer> {
                                         ),
                                         decoration: InputDecoration(
                                           hintText: isStreaming
-                                              ? 'Aggiungi istruzioni o prepara il prossimo turno...'
-                                              : 'Cosa vuoi realizzare? Digita / per i comandi.',
+                                              ? _tr(
+                                                  'Aggiungi istruzioni o prepara il prossimo turno...',
+                                                  'Add instructions or prepare the next turn...',
+                                                )
+                                              : _tr(
+                                                  'Cosa vuoi realizzare? Digita / per i comandi.',
+                                                  'What would you like to do? Type / for commands.',
+                                                ),
                                           hintStyle: TextStyle(
                                             color: tokens.textMuted,
                                             fontSize: 13.5,
@@ -2085,8 +2193,14 @@ class _ComposerState extends ConsumerState<Composer> {
                                           right: 2,
                                           child: Tooltip(
                                             message: _isInputEnlarged
-                                                ? 'Riduci area di testo'
-                                                : 'Ingrandisci area di testo',
+                                                ? _tr(
+                                                    'Riduci area di testo',
+                                                    'Shrink text area',
+                                                  )
+                                                : _tr(
+                                                    'Ingrandisci area di testo',
+                                                    'Expand text area',
+                                                  ),
                                             child: InkWell(
                                               key: const ValueKey(
                                                 'composer-enlarge-prompt-btn',
@@ -2136,8 +2250,14 @@ class _ComposerState extends ConsumerState<Composer> {
                                                     const SizedBox(width: 3),
                                                     Text(
                                                       _isInputEnlarged
-                                                          ? 'Riduci'
-                                                          : 'Ingrandisci',
+                                                          ? _tr(
+                                                              'Riduci',
+                                                              'Shrink',
+                                                            )
+                                                          : _tr(
+                                                              'Ingrandisci',
+                                                              'Expand',
+                                                            ),
                                                       style: TextStyle(
                                                         color: _isInputEnlarged
                                                             ? tokens.accent
@@ -2167,7 +2287,10 @@ class _ComposerState extends ConsumerState<Composer> {
                                             children: [
                                               Builder(
                                                 builder: (chipCtx) => Tooltip(
-                                                  message: 'Cambia modello',
+                                                  message: _tr(
+                                                    'Cambia modello',
+                                                    'Change model',
+                                                  ),
                                                   child: InkWell(
                                                     key: const ValueKey(
                                                       'composer-model-picker-btn',
@@ -2225,7 +2348,10 @@ class _ComposerState extends ConsumerState<Composer> {
                                                             ),
                                                             child: Text(
                                                               currentModel ??
-                                                                  'Modello',
+                                                                  _tr(
+                                                                    'Modello',
+                                                                    'Model',
+                                                                  ),
                                                               maxLines: 1,
                                                               overflow:
                                                                   TextOverflow
@@ -2259,7 +2385,10 @@ class _ComposerState extends ConsumerState<Composer> {
                                               const SizedBox(width: 4),
                                               Builder(
                                                 builder: (chipCtx) => Tooltip(
-                                                  message: 'Livello thinking',
+                                                  message: _tr(
+                                                    'Livello thinking',
+                                                    'Thinking level',
+                                                  ),
                                                   child: InkWell(
                                                     key: const ValueKey(
                                                       'composer-thinking-picker-btn',
@@ -2337,7 +2466,10 @@ class _ComposerState extends ConsumerState<Composer> {
                                                 const SizedBox(width: 4),
                                                 Builder(
                                                   builder: (chipCtx) => Tooltip(
-                                                    message: 'Dimensione contesto (pricing variabile)',
+                                                    message: _tr(
+                                                      'Dimensione contesto (pricing variabile)',
+                                                      'Context size (variable pricing)',
+                                                    ),
                                                     child: InkWell(
                                                       key: const ValueKey(
                                                         'composer-context-size-picker-btn',
@@ -2430,8 +2562,14 @@ class _ComposerState extends ConsumerState<Composer> {
                                       ),
                                       Tooltip(
                                         message: _isInputEnlarged
-                                            ? 'Riduci area di testo'
-                                            : 'Ingrandisci area di testo',
+                                            ? _tr(
+                                                'Riduci area di testo',
+                                                'Shrink text area',
+                                              )
+                                            : _tr(
+                                                'Ingrandisci area di testo',
+                                                'Expand text area',
+                                              ),
                                         child: IconButton(
                                           key: const ValueKey(
                                             'composer-enlarge-toggle-btn',
@@ -2481,7 +2619,10 @@ class _ComposerState extends ConsumerState<Composer> {
                                                   color: tokens.signalDanger,
                                                   size: 19,
                                                 ),
-                                          tooltip: 'Interrompi (Esc)',
+                                          tooltip: _tr(
+                                            'Interrompi (Esc)',
+                                            'Stop (Esc)',
+                                          ),
                                           padding: EdgeInsets.zero,
                                           constraints: const BoxConstraints(
                                             minWidth: 28,
@@ -2493,7 +2634,10 @@ class _ComposerState extends ConsumerState<Composer> {
                                         ),
                                         const SizedBox(width: 4),
                                         Tooltip(
-                                          message: 'Steer: interrompe e applica (Ctrl+Invio)',
+                                          message: _tr(
+                                            'Steer: interrompe e applica (Ctrl+Invio)',
+                                            'Steer: interrupt and apply (Ctrl+Enter)',
+                                          ),
                                           child: Container(
                                             width: 28,
                                             height: 28,
@@ -2545,7 +2689,10 @@ class _ComposerState extends ConsumerState<Composer> {
                                         ),
                                         const SizedBox(width: 4),
                                         Tooltip(
-                                          message: 'Follow-up: metti in coda',
+                                          message: _tr(
+                                            'Follow-up: metti in coda',
+                                            'Follow-up: add to queue',
+                                          ),
                                           child: Container(
                                             width: 28,
                                             height: 28,
@@ -2608,8 +2755,14 @@ class _ComposerState extends ConsumerState<Composer> {
                                                 ref.watch(
                                                   isReviewingChangesProvider,
                                                 )
-                                                ? 'Chiudi revisione modifiche'
-                                                : 'Rivedi modifiche ai file',
+                                                ? _tr(
+                                                    'Chiudi revisione modifiche',
+                                                    'Close changes review',
+                                                  )
+                                                : _tr(
+                                                    'Rivedi modifiche ai file',
+                                                    'Review file changes',
+                                                  ),
                                             child: Container(
                                               width: 28,
                                               height: 28,
@@ -2692,7 +2845,10 @@ class _ComposerState extends ConsumerState<Composer> {
                                           ),
                                         ],
                                         Tooltip(
-                                          message: 'Invia prompt (Ctrl+Invio)',
+                                          message: _tr(
+                                            'Invia prompt (Ctrl+Invio)',
+                                            'Send prompt (Ctrl+Enter)',
+                                          ),
                                           child: PressFeedback(
                                             child: FilledButton(
                                               key: const ValueKey(
@@ -2742,7 +2898,7 @@ class _ComposerState extends ConsumerState<Composer> {
                                                     width: 0,
                                                     height: 0,
                                                     child: Text(
-                                                      'Invia',
+                                                      _tr('Invia', 'Send'),
                                                       style: TextStyle(
                                                         fontSize: 0,
                                                         color: tokens.background
@@ -2814,7 +2970,10 @@ class _ComposerState extends ConsumerState<Composer> {
             const SizedBox(width: 10),
             Expanded(
               child: Text(
-                'L\'agente sta rispondendo... Passa il mouse o clicca per scrivere',
+                _tr(
+                  'L\'agente sta rispondendo... Passa il mouse o clicca per scrivere',
+                  'The agent is responding... Hover or click to type',
+                ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
@@ -2846,7 +3005,7 @@ class _ComposerState extends ConsumerState<Composer> {
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        'Interrompi',
+                        _tr('Interrompi', 'Stop'),
                         style: TextStyle(
                           color: tokens.signalDanger,
                           fontSize: 11,

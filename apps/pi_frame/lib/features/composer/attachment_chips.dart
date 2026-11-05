@@ -1,11 +1,15 @@
 import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pi_frame_theme/pi_frame_theme.dart';
 import 'package:url_launcher/url_launcher.dart';
+
+import '../../data/language/language_settings.dart';
 import '../../domain/session/attachment_model.dart';
 
-class WebLinkInputDialog extends StatefulWidget {
+class WebLinkInputDialog extends ConsumerStatefulWidget {
   const WebLinkInputDialog({super.key});
 
   static Future<ChatAttachment?> show(BuildContext context) {
@@ -17,13 +21,16 @@ class WebLinkInputDialog extends StatefulWidget {
   }
 
   @override
-  State<WebLinkInputDialog> createState() => _WebLinkInputDialogState();
+  ConsumerState<WebLinkInputDialog> createState() => _WebLinkInputDialogState();
 }
 
-class _WebLinkInputDialogState extends State<WebLinkInputDialog> {
+class _WebLinkInputDialogState extends ConsumerState<WebLinkInputDialog> {
   final _urlController = TextEditingController();
   final _nameController = TextEditingController();
   String? _error;
+
+  String _tr(String it, String en) =>
+      ref.read(appLanguageProvider) == AppLanguage.it ? it : en;
 
   @override
   void dispose() {
@@ -35,7 +42,9 @@ class _WebLinkInputDialogState extends State<WebLinkInputDialog> {
   void _submit() {
     final rawUrl = _urlController.text.trim();
     if (rawUrl.isEmpty) {
-      setState(() => _error = 'Inserisci un URL valido');
+      setState(
+        () => _error = _tr('Inserisci un URL valido', 'Enter a valid URL'),
+      );
       return;
     }
 
@@ -47,7 +56,9 @@ class _WebLinkInputDialogState extends State<WebLinkInputDialog> {
 
     final uri = Uri.tryParse(formattedUrl);
     if (uri == null || !uri.hasAuthority) {
-      setState(() => _error = 'Formato URL non valido');
+      setState(
+        () => _error = _tr('Formato URL non valido', 'Invalid URL format'),
+      );
       return;
     }
 
@@ -66,6 +77,7 @@ class _WebLinkInputDialogState extends State<WebLinkInputDialog> {
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(appLanguageProvider);
     final tokens = context.tokens;
     return Dialog(
       backgroundColor: tokens.surfaceElevated,
@@ -93,7 +105,7 @@ class _WebLinkInputDialogState extends State<WebLinkInputDialog> {
                   ),
                   const SizedBox(width: 10),
                   Text(
-                    'Aggiungi Link Web',
+                    _tr('Aggiungi link web', 'Add web link'),
                     style: TextStyle(
                       color: tokens.textPrimary,
                       fontSize: 15,
@@ -132,8 +144,14 @@ class _WebLinkInputDialogState extends State<WebLinkInputDialog> {
                 controller: _nameController,
                 style: TextStyle(color: tokens.textPrimary, fontSize: 13),
                 decoration: InputDecoration(
-                  labelText: 'Titolo o etichetta (opzionale)',
-                  hintText: 'Documentazione API, PR GitHub...',
+                  labelText: _tr(
+                    'Titolo o etichetta (opzionale)',
+                    'Title or label (optional)',
+                  ),
+                  hintText: _tr(
+                    'Documentazione API, PR GitHub...',
+                    'API documentation, GitHub PR...',
+                  ),
                   prefixIcon: const Icon(Icons.label_outline, size: 16),
                   filled: true,
                   fillColor: tokens.background,
@@ -149,7 +167,10 @@ class _WebLinkInputDialogState extends State<WebLinkInputDialog> {
                 children: [
                   TextButton(
                     onPressed: () => Navigator.of(context).pop(),
-                    child: Text('Annulla', style: TextStyle(color: tokens.textMuted)),
+                    child: Text(
+                      _tr('Annulla', 'Cancel'),
+                      style: TextStyle(color: tokens.textMuted),
+                    ),
                   ),
                   const SizedBox(width: 8),
                   ElevatedButton(
@@ -162,7 +183,7 @@ class _WebLinkInputDialogState extends State<WebLinkInputDialog> {
                       ),
                     ),
                     onPressed: _submit,
-                    child: const Text('Aggiungi Link'),
+                    child: Text(_tr('Aggiungi link', 'Add link')),
                   ),
                 ],
               ),
@@ -174,7 +195,7 @@ class _WebLinkInputDialogState extends State<WebLinkInputDialog> {
   }
 }
 
-class ImagePreviewDialog extends StatelessWidget {
+class ImagePreviewDialog extends ConsumerWidget {
   final String pathOrUrl;
   final String title;
 
@@ -198,7 +219,8 @@ class ImagePreviewDialog extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isItalian = ref.watch(appLanguageProvider) == AppLanguage.it;
     final tokens = context.tokens;
 
     return Dialog(
@@ -207,21 +229,14 @@ class ImagePreviewDialog extends StatelessWidget {
       elevation: 0,
       insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
       child: ConstrainedBox(
-        constraints: const BoxConstraints(
-          maxWidth: 960,
-          maxHeight: 780,
-        ),
+        constraints: const BoxConstraints(maxWidth: 960, maxHeight: 780),
         child: Container(
           decoration: BoxDecoration(
             color: tokens.surface.withValues(alpha: 0.95),
             borderRadius: BorderRadius.circular(tokens.radiusLg),
             border: Border.all(color: tokens.borderStrong),
             boxShadow: [
-              BoxShadow(
-                color: tokens.overlay,
-                blurRadius: 24,
-                spreadRadius: 4,
-              ),
+              BoxShadow(color: tokens.overlay, blurRadius: 24, spreadRadius: 4),
             ],
           ),
           child: Column(
@@ -230,7 +245,10 @@ class ImagePreviewDialog extends StatelessWidget {
             children: [
               // Header
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 10,
+                ),
                 decoration: BoxDecoration(
                   border: Border(
                     bottom: BorderSide(color: tokens.border, width: 1),
@@ -268,8 +286,12 @@ class ImagePreviewDialog extends StatelessWidget {
                       ),
                     ),
                     IconButton(
-                      icon: Icon(Icons.close, size: 18, color: tokens.textMuted),
-                      tooltip: 'Chiudi anteprima',
+                      icon: Icon(
+                        Icons.close,
+                        size: 18,
+                        color: tokens.textMuted,
+                      ),
+                      tooltip: isItalian ? 'Chiudi anteprima' : 'Close preview',
                       onPressed: () => Navigator.of(context).pop(),
                     ),
                   ],
@@ -291,7 +313,8 @@ class ImagePreviewDialog extends StatelessWidget {
                         child: buildAttachmentImage(
                           pathOrUrl,
                           fit: BoxFit.contain,
-                          errorBuilder: (ctx, err, stack) => _buildError(tokens),
+                          errorBuilder: (ctx, err, stack) =>
+                              _buildError(tokens, isItalian),
                         ),
                       ),
                     ),
@@ -305,14 +328,16 @@ class ImagePreviewDialog extends StatelessWidget {
     );
   }
 
-  Widget _buildError(FrameTokens tokens) {
+  Widget _buildError(FrameTokens tokens, bool isItalian) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         Icon(Icons.broken_image_outlined, size: 48, color: tokens.danger),
         const SizedBox(height: 8),
         Text(
-          'Impossibile caricare l\'immagine',
+          isItalian
+              ? 'Impossibile caricare l\'immagine'
+              : 'Unable to load image',
           style: TextStyle(color: tokens.textSecondary, fontSize: 13),
         ),
       ],
@@ -365,10 +390,7 @@ class AttachmentChip extends StatelessWidget {
       decoration: BoxDecoration(
         color: tokens.surfaceElevated,
         borderRadius: BorderRadius.circular(tokens.radiusSm),
-        border: Border.all(
-          color: tokens.borderStrong,
-          width: 1,
-        ),
+        border: Border.all(color: tokens.borderStrong, width: 1),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -433,11 +455,7 @@ class AttachmentChip extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              Icons.link,
-              size: 14,
-              color: tokens.syntaxKeyword,
-            ),
+            Icon(Icons.link, size: 14, color: tokens.syntaxKeyword),
             const SizedBox(width: 6),
             Tooltip(
               message: attachment.pathOrUrl,
@@ -483,12 +501,13 @@ class AttachmentChip extends StatelessWidget {
           message: '${attachment.name} (Clicca per ingrandire)',
           child: InkWell(
             borderRadius: BorderRadius.circular(tokens.radiusSm),
-            onTap: onImageTap ??
+            onTap:
+                onImageTap ??
                 () => ImagePreviewDialog.show(
-                      context,
-                      pathOrUrl: attachment.pathOrUrl,
-                      title: attachment.name,
-                    ),
+                  context,
+                  pathOrUrl: attachment.pathOrUrl,
+                  title: attachment.name,
+                ),
             child: Container(
               width: 52,
               height: 52,
@@ -577,7 +596,8 @@ Widget buildAttachmentImage(
     );
   }
   return Builder(
-    builder: (ctx) => errorBuilder(ctx, StateError('Unsupported image source'), null),
+    builder: (ctx) =>
+        errorBuilder(ctx, StateError('Unsupported image source'), null),
   );
 }
 

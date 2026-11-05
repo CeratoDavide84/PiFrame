@@ -1,20 +1,19 @@
 import 'dart:async';
 import 'dart:io';
+
 import 'package:flutter/foundation.dart' show kIsWeb;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pi_frame_theme/pi_frame_theme.dart';
 
+import '../../data/language/language_settings.dart';
 import '../../data/pi_install/pi_install_service.dart';
 
 class PiInstallDialog extends ConsumerStatefulWidget {
   final PiInstallService? customService;
 
-  const PiInstallDialog({
-    super.key,
-    this.customService,
-  });
+  const PiInstallDialog({super.key, this.customService});
 
   static Future<bool?> show(
     BuildContext context, {
@@ -40,6 +39,9 @@ class _PiInstallDialogState extends ConsumerState<PiInstallDialog> {
   bool _isDone = false;
   bool _isSuccess = false;
   String _logOutput = '';
+
+  String _tr(String it, String en) =>
+      ref.read(appLanguageProvider) == AppLanguage.it ? it : en;
 
   @override
   void dispose() {
@@ -123,6 +125,7 @@ class _PiInstallDialogState extends ConsumerState<PiInstallDialog> {
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(appLanguageProvider);
     final tokens = context.tokens;
 
     return Dialog(
@@ -132,10 +135,7 @@ class _PiInstallDialogState extends ConsumerState<PiInstallDialog> {
         side: BorderSide(color: tokens.borderStrong),
       ),
       child: ConstrainedBox(
-        constraints: const BoxConstraints(
-          maxWidth: 620,
-          maxHeight: 520,
-        ),
+        constraints: const BoxConstraints(maxWidth: 620, maxHeight: 520),
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Column(
@@ -159,7 +159,10 @@ class _PiInstallDialogState extends ConsumerState<PiInstallDialog> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Installazione Pi Coding Agent',
+                          _tr(
+                            'Installazione Pi Coding Agent',
+                            'Install Pi Coding Agent',
+                          ),
                           style: TextStyle(
                             fontFamily: tokens.headingFontFamily,
                             fontSize: 18,
@@ -168,7 +171,10 @@ class _PiInstallDialogState extends ConsumerState<PiInstallDialog> {
                           ),
                         ),
                         Text(
-                          'Configurazione automatica iniziale',
+                          _tr(
+                            'Configurazione automatica iniziale',
+                            'Initial automatic setup',
+                          ),
                           style: TextStyle(
                             fontSize: 12,
                             color: tokens.textMuted,
@@ -220,7 +226,10 @@ class _PiInstallDialogState extends ConsumerState<PiInstallDialog> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Pi Coding Agent non rilevato',
+                      _tr(
+                        'Pi Coding Agent non rilevato',
+                        'Pi Coding Agent not detected',
+                      ),
                       style: TextStyle(
                         fontWeight: FontWeight.w600,
                         color: tokens.textPrimary,
@@ -229,7 +238,10 @@ class _PiInstallDialogState extends ConsumerState<PiInstallDialog> {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      'PiFrame utilizza pi-coding-agent (@earendil-works/pi-coding-agent) per alimentare le sessioni e gli strumenti dell\'agente. Non è stato rilevato alcun comando "pi" nel sistema.',
+                      _tr(
+                        'PiFrame utilizza pi-coding-agent (@earendil-works/pi-coding-agent) per alimentare le sessioni e gli strumenti dell\'agente. Non è stato rilevato alcun comando "pi" nel sistema.',
+                        'PiFrame uses pi-coding-agent (@earendil-works/pi-coding-agent) to power agent sessions and tools. No "pi" command was found on this system.',
+                      ),
                       style: TextStyle(
                         color: tokens.textSecondary,
                         fontSize: 13,
@@ -244,7 +256,10 @@ class _PiInstallDialogState extends ConsumerState<PiInstallDialog> {
         ),
         const SizedBox(height: 16),
         Text(
-          'Vuoi procedere con l\'installazione automatica ufficiale adesso?',
+          _tr(
+            'Vuoi procedere con l\'installazione automatica ufficiale adesso?',
+            'Would you like to run the official automatic installation now?',
+          ),
           style: TextStyle(
             color: tokens.textPrimary,
             fontSize: 13,
@@ -254,8 +269,8 @@ class _PiInstallDialogState extends ConsumerState<PiInstallDialog> {
         const SizedBox(height: 8),
         Text(
           kIsWeb || !Platform.isWindows
-              ? 'Comando: curl -fsSL https://pi.dev/install.sh | sh\n(installazione ufficiale con configurazione automatica dei prerequisiti)'
-              : 'Comando: irm https://pi.dev/install.ps1 | iex\n(installazione ufficiale con configurazione automatica dei prerequisiti)',
+              ? 'Command: curl -fsSL https://pi.dev/install.sh | sh\n${_tr('(installazione ufficiale con configurazione automatica dei prerequisiti)', '(official installation with automatic prerequisite setup)')}'
+              : 'Command: irm https://pi.dev/install.ps1 | iex\n${_tr('(installazione ufficiale con configurazione automatica dei prerequisiti)', '(official installation with automatic prerequisite setup)')}',
           style: TextStyle(
             fontFamily: tokens.monoFontFamily,
             fontSize: 11,
@@ -284,7 +299,13 @@ class _PiInstallDialogState extends ConsumerState<PiInstallDialog> {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  'Installazione di pi-coding-agent in corso...',
+                  _tr(
+                    _tr(
+                      'Installazione di pi-coding-agent in corso...',
+                      'Installing pi-coding-agent...',
+                    ),
+                    'Installing pi-coding-agent...',
+                  ),
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontSize: 13,
@@ -300,12 +321,14 @@ class _PiInstallDialogState extends ConsumerState<PiInstallDialog> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
-              color: (_isSuccess ? tokens.success : tokens.danger)
-                  .withValues(alpha: 0.15),
+              color: (_isSuccess ? tokens.success : tokens.danger).withValues(
+                alpha: 0.15,
+              ),
               borderRadius: BorderRadius.circular(tokens.radiusSm),
               border: Border.all(
-                color: (_isSuccess ? tokens.success : tokens.danger)
-                    .withValues(alpha: 0.4),
+                color: (_isSuccess ? tokens.success : tokens.danger).withValues(
+                  alpha: 0.4,
+                ),
               ),
             ),
             child: Row(
@@ -319,8 +342,14 @@ class _PiInstallDialogState extends ConsumerState<PiInstallDialog> {
                 Expanded(
                   child: Text(
                     _isSuccess
-                        ? 'Installazione completata con successo!'
-                        : 'Installazione non riuscita. Verifica i log sottostanti.',
+                        ? _tr(
+                            'Installazione completata con successo!',
+                            'Installation completed successfully!',
+                          )
+                        : _tr(
+                            'Installazione non riuscita. Verifica i log sottostanti.',
+                            'Installation failed. Check the logs below.',
+                          ),
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
@@ -345,7 +374,9 @@ class _PiInstallDialogState extends ConsumerState<PiInstallDialog> {
             child: SingleChildScrollView(
               controller: _scrollController,
               child: SelectableText(
-                _logOutput.isEmpty ? 'In attesa di output...\n' : _logOutput,
+                _logOutput.isEmpty
+                    ? _tr('In attesa di output...\n', 'Waiting for output...\n')
+                    : _logOutput,
                 style: TextStyle(
                   fontFamily: tokens.monoFontFamily,
                   fontSize: 11,
@@ -366,7 +397,7 @@ class _PiInstallDialogState extends ConsumerState<PiInstallDialog> {
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
           Text(
-            'Attendere il completamento...',
+            _tr('Attendere il completamento...', 'Waiting for completion...'),
             style: TextStyle(fontSize: 12, color: tokens.textMuted),
           ),
         ],
@@ -381,7 +412,7 @@ class _PiInstallDialogState extends ConsumerState<PiInstallDialog> {
             OutlinedButton(
               key: const ValueKey('pi-install-retry-btn'),
               onPressed: _startInstall,
-              child: const Text('Riprova'),
+              child: Text(_tr('Riprova', 'Retry')),
             ),
             const SizedBox(width: 10),
           ],
@@ -392,7 +423,11 @@ class _PiInstallDialogState extends ConsumerState<PiInstallDialog> {
               foregroundColor: tokens.accentContrast,
             ),
             onPressed: () => _dismiss(_isSuccess),
-            child: Text(_isSuccess ? 'Inizia' : 'Chiudi'),
+            child: Text(
+              _isSuccess
+                  ? _tr('Inizia', 'Get started')
+                  : _tr('Chiudi', 'Close'),
+            ),
           ),
         ],
       );
@@ -405,7 +440,7 @@ class _PiInstallDialogState extends ConsumerState<PiInstallDialog> {
           key: const ValueKey('pi-install-later-btn'),
           onPressed: () => _dismiss(false),
           child: Text(
-            'Più tardi',
+            _tr('Più tardi', 'Later'),
             style: TextStyle(color: tokens.textMuted),
           ),
         ),
@@ -417,7 +452,7 @@ class _PiInstallDialogState extends ConsumerState<PiInstallDialog> {
             foregroundColor: tokens.accentContrast,
           ),
           icon: const Icon(Icons.download, size: 18),
-          label: const Text('Installa adesso'),
+          label: Text(_tr('Installa adesso', 'Install now')),
           onPressed: _startInstall,
         ),
       ],

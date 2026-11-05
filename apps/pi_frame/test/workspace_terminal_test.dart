@@ -16,7 +16,7 @@ void main() {
     var closed = false;
 
     await tester.pumpWidget(
-      MaterialApp(
+      ProviderScope(child: MaterialApp(
         home: Scaffold(
           body: SizedBox(
             height: 400,
@@ -29,7 +29,7 @@ void main() {
             ),
           ),
         ),
-      ),
+      )),
     );
     await tester.pumpAndSettle();
 
@@ -143,7 +143,7 @@ void main() {
   testWidgets('TerminalView accepts user typing and sends to process', (tester) async {
     const tokens = FrameTokens.dark;
     await tester.pumpWidget(
-      MaterialApp(
+      ProviderScope(child: MaterialApp(
         home: Scaffold(
           body: SizedBox(
             height: 400,
@@ -156,7 +156,7 @@ void main() {
             ),
           ),
         ),
-      ),
+      )),
     );
     await tester.pumpAndSettle();
 

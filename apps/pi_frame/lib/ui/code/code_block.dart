@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:pi_frame_theme/pi_frame_theme.dart';
+
 import 'syntax_highlighter.dart';
 
 class CodeBlock extends StatefulWidget {
@@ -46,6 +47,7 @@ class _CodeBlockState extends State<CodeBlock> {
 
   @override
   Widget build(BuildContext context) {
+    final isItalian = Localizations.localeOf(context).languageCode == 'it';
     final tokens = context.tokens;
     final lang = widget.language?.trim().toLowerCase() ?? 'text';
 
@@ -63,82 +65,83 @@ class _CodeBlockState extends State<CodeBlock> {
             // Header: Language badge + Copy button
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: tokens.surfaceElevated,
-              borderRadius: BorderRadius.only(
-                topLeft: Radius.circular(tokens.radiusSm),
-                topRight: Radius.circular(tokens.radiusSm),
-              ),
-              border: Border(
-                bottom: BorderSide(color: tokens.border, width: 1),
-              ),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  lang.toUpperCase(),
-                  style: TextStyle(
-                    color: tokens.textMuted,
-                    fontSize: 11,
-                    fontFamily: tokens.monoFontFamily,
-                    fontWeight: FontWeight.bold,
-                  ),
+              decoration: BoxDecoration(
+                color: tokens.surfaceElevated,
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(tokens.radiusSm),
+                  topRight: Radius.circular(tokens.radiusSm),
                 ),
-                InkWell(
-                  onTap: _copyToClipboard,
-                  borderRadius: BorderRadius.circular(4),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 6,
-                      vertical: 2,
+                border: Border(
+                  bottom: BorderSide(color: tokens.border, width: 1),
+                ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    lang.toUpperCase(),
+                    style: TextStyle(
+                      color: tokens.textMuted,
+                      fontSize: 11,
+                      fontFamily: tokens.monoFontFamily,
+                      fontWeight: FontWeight.bold,
                     ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          _copied ? Icons.check : Icons.copy,
-                          size: 12,
-                          color: _copied
-                              ? tokens.success
-                              : tokens.textSecondary,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          _copied ? 'Copiato!' : 'Copia',
-                          style: TextStyle(
+                  ),
+                  InkWell(
+                    onTap: _copyToClipboard,
+                    borderRadius: BorderRadius.circular(4),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            _copied ? Icons.check : Icons.copy,
+                            size: 12,
                             color: _copied
-                                ? tokens.textPrimary
+                                ? tokens.success
                                 : tokens.textSecondary,
-                            fontSize: 11,
-                            fontFamily: tokens.monoFontFamily,
                           ),
-                        ),
-                      ],
+                          const SizedBox(width: 4),
+                          Text(
+                            _copied
+                                ? (isItalian ? 'Copiato!' : 'Copied!')
+                                : (isItalian ? 'Copia' : 'Copy'),
+                            style: TextStyle(
+                              color: _copied
+                                  ? tokens.textPrimary
+                                  : tokens.textSecondary,
+                              fontSize: 11,
+                              fontFamily: tokens.monoFontFamily,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-              ],
-            ),
-          ),
-
-          // Code text area with horizontal scrolling
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.all(12),
-            child: SelectableText.rich(
-              _getSpans(widget.code, lang, tokens),
-              style: TextStyle(
-                fontFamily: tokens.monoFontFamily,
-                fontSize: 12.5,
-                height: 1.5,
+                ],
               ),
             ),
-          ),
-        ],
-      ),
-    ),
-  );
-}
-}
 
+            // Code text area with horizontal scrolling
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.all(12),
+              child: SelectableText.rich(
+                _getSpans(widget.code, lang, tokens),
+                style: TextStyle(
+                  fontFamily: tokens.monoFontFamily,
+                  fontSize: 12.5,
+                  height: 1.5,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

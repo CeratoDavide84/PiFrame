@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pi_frame_theme/pi_frame_theme.dart';
+
+import '../../data/language/language_settings.dart';
 import '../../ui/code/syntax_highlighter.dart';
 import 'diff_parser.dart';
 import 'session_changes_provider.dart';
 
-class ReviewFileDiffViewer extends StatefulWidget {
+class ReviewFileDiffViewer extends ConsumerStatefulWidget {
   final SessionChangedFile file;
   final DiffViewMode mode;
 
@@ -15,13 +18,17 @@ class ReviewFileDiffViewer extends StatefulWidget {
   });
 
   @override
-  State<ReviewFileDiffViewer> createState() => _ReviewFileDiffViewerState();
+  ConsumerState<ReviewFileDiffViewer> createState() =>
+      _ReviewFileDiffViewerState();
 }
 
-class _ReviewFileDiffViewerState extends State<ReviewFileDiffViewer> {
+class _ReviewFileDiffViewerState extends ConsumerState<ReviewFileDiffViewer> {
   ParsedDiff? _parsedDiff;
   String? _lastDiffText;
   final Set<int> _expandedHunkGaps = {};
+
+  String _tr(String it, String en) =>
+      ref.read(appLanguageProvider) == AppLanguage.it ? it : en;
 
   void _parseDiffIfNeeded() {
     final diffText = widget.file.diff ?? '';
@@ -32,6 +39,7 @@ class _ReviewFileDiffViewerState extends State<ReviewFileDiffViewer> {
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(appLanguageProvider);
     final tokens = context.tokens;
     _parseDiffIfNeeded();
 
@@ -52,7 +60,7 @@ class _ReviewFileDiffViewerState extends State<ReviewFileDiffViewer> {
             ),
             const SizedBox(width: 8),
             Text(
-              'Caricamento diff...',
+              _tr('Caricamento diff...', 'Loading diff...'),
               style: TextStyle(color: tokens.textMuted, fontSize: 11),
             ),
           ],
@@ -68,7 +76,7 @@ class _ReviewFileDiffViewerState extends State<ReviewFileDiffViewer> {
         child: Text(
           widget.file.diff?.isNotEmpty == true
               ? widget.file.diff!
-              : 'Nessuna differenza da mostrare.',
+              : _tr('Nessuna differenza da mostrare.', 'No diff to display.'),
           style: TextStyle(
             color: tokens.textMuted,
             fontSize: 11,
@@ -137,7 +145,9 @@ class _ReviewFileDiffViewerState extends State<ReviewFileDiffViewer> {
 
     final prefixColor = isAdd
         ? tokens.diffAddedFg
-        : (isDel ? tokens.diffRemovedFg : tokens.textMuted.withValues(alpha: 0.4));
+        : (isDel
+              ? tokens.diffRemovedFg
+              : tokens.textMuted.withValues(alpha: 0.4));
 
     final prefix = isAdd ? '+ ' : (isDel ? '- ' : '  ');
 
@@ -237,11 +247,7 @@ class _ReviewFileDiffViewerState extends State<ReviewFileDiffViewer> {
     );
   }
 
-  Widget _buildTwoColumnRow(
-    SplitDiffRow row,
-    FrameTokens tokens,
-    String lang,
-  ) {
+  Widget _buildTwoColumnRow(SplitDiffRow row, FrameTokens tokens, String lang) {
     final left = row.left;
     final right = row.right;
 

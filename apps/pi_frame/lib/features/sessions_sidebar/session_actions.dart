@@ -7,6 +7,7 @@ import 'package:pi_frame_theme/pi_frame_theme.dart';
 
 import '../../data/daemon/daemon_providers.dart';
 import '../../data/daemon/pcp_client.dart';
+import '../../data/language/language_settings.dart';
 import '../workspace/repository_workspace.dart';
 import 'pinned_sessions_provider.dart';
 import 'removed_repos_provider.dart';
@@ -20,16 +21,17 @@ Future<String?> _chooseSessionDirectory(
   builder: (_) => _SessionDirectoryDialog(initialDirectory: initialDirectory),
 );
 
-class _SessionDirectoryDialog extends StatefulWidget {
+class _SessionDirectoryDialog extends ConsumerStatefulWidget {
   const _SessionDirectoryDialog({required this.initialDirectory});
   final String initialDirectory;
 
   @override
-  State<_SessionDirectoryDialog> createState() =>
+  ConsumerState<_SessionDirectoryDialog> createState() =>
       _SessionDirectoryDialogState();
 }
 
-class _SessionDirectoryDialogState extends State<_SessionDirectoryDialog> {
+class _SessionDirectoryDialogState extends ConsumerState<_SessionDirectoryDialog> {
+  String _tr(String it, String en) => ref.read(appLanguageProvider) == AppLanguage.it ? it : en;
   late final TextEditingController _controller = TextEditingController(
     text: widget.initialDirectory,
   );
@@ -50,7 +52,7 @@ class _SessionDirectoryDialogState extends State<_SessionDirectoryDialog> {
       if (mounted) {
         FrameSnackBar.show(
           context,
-          message: 'Cartella non disponibile: $error',
+          message: _tr('Cartella non disponibile: $error', 'Folder unavailable: $error'),
         );
       }
     }
@@ -58,7 +60,7 @@ class _SessionDirectoryDialogState extends State<_SessionDirectoryDialog> {
 
   @override
   Widget build(BuildContext context) => AlertDialog(
-    title: const Text('Nuova sessione'),
+    title: Text(_tr('Nuova sessione', 'New session')),
     content: Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -68,16 +70,16 @@ class _SessionDirectoryDialogState extends State<_SessionDirectoryDialog> {
           controller: _controller,
           autofocus: true,
           onChanged: (_) => setState(() {}),
-          decoration: const InputDecoration(
-            labelText: 'Cartella di lavoro',
+          decoration: InputDecoration(
+            labelText: _tr('Cartella di lavoro', 'Working directory'),
             hintText: 'C:\\Projects\\my-project',
           ),
         ),
         if (kIsWeb) ...[
           const SizedBox(height: 8),
-          const Text(
-            'Nel browser inserisci il percorso locale raggiungibile dal daemon.',
-            style: TextStyle(fontSize: 12),
+          Text(
+            _tr('Nel browser inserisci il percorso locale raggiungibile dal daemon.', 'In the browser, enter a local path accessible to the daemon.'),
+            style: const TextStyle(fontSize: 12),
           ),
         ],
       ],
@@ -87,17 +89,17 @@ class _SessionDirectoryDialogState extends State<_SessionDirectoryDialog> {
         TextButton.icon(
           onPressed: _pickDirectory,
           icon: const Icon(Icons.folder_open_outlined),
-          label: const Text('Scegli cartella'),
+          label: Text(_tr('Scegli cartella', 'Choose folder')),
         ),
       TextButton(
         onPressed: () => Navigator.pop(context),
-        child: const Text('Annulla'),
+        child: Text(_tr('Annulla', 'Cancel')),
       ),
       FilledButton(
         onPressed: _controller.text.trim().isEmpty
             ? null
             : () => Navigator.pop(context, _controller.text.trim()),
-        child: const Text('Crea'),
+        child: Text(_tr('Crea', 'Create')),
       ),
     ],
   );
@@ -109,6 +111,7 @@ Future<void> createSession(
   String? name,
   String? cwd,
 }) async {
+  final isItalian = ref.read(appLanguageProvider) == AppLanguage.it;
   final client = ref.read(pcpClientProvider);
   if (client == null) return;
   if (!await resolveDirtyRepository(
@@ -153,7 +156,7 @@ Future<void> createSession(
     }
   } catch (error) {
     if (context.mounted) {
-      FrameSnackBar.show(context, message: 'Creazione non riuscita: $error');
+      FrameSnackBar.show(context, message: isItalian ? 'Creazione non riuscita: $error' : 'Creation failed: $error');
     }
   }
 }
@@ -164,6 +167,7 @@ Future<void> deleteSessionWithConfirmation(
   required String sessionId,
   required String sessionName,
 }) async {
+  final isItalian = ref.read(appLanguageProvider) == AppLanguage.it;
   final confirmed = await showDialog<bool>(
     context: context,
     builder: (ctx) {
@@ -173,17 +177,16 @@ Future<void> deleteSessionWithConfirmation(
           children: [
             Icon(Icons.delete_outline, color: tokens.danger, size: 22),
             const SizedBox(width: 8),
-            const Expanded(child: Text('Elimina sessione')),
+            Expanded(child: Text(isItalian ? 'Elimina sessione' : 'Delete session')),
           ],
         ),
         content: Text(
-          'Sei sicuro di voler eliminare la sessione "$sessionName"?\n'
-          'Tutti i messaggi e la cronologia della sessione verranno eliminati definitivamente.',
+          isItalian ? 'Sei sicuro di voler eliminare la sessione "$sessionName"?\nTutti i messaggi e la cronologia della sessione verranno eliminati definitivamente.' : 'Delete session "$sessionName"?\nAll messages and session history will be permanently deleted.',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Annulla'),
+            child: Text(isItalian ? 'Annulla' : 'Cancel'),
           ),
           FilledButton(
             style: FilledButton.styleFrom(
@@ -191,7 +194,7 @@ Future<void> deleteSessionWithConfirmation(
               foregroundColor: tokens.surface,
             ),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Elimina'),
+            child: Text(isItalian ? 'Elimina' : 'Delete'),
           ),
         ],
       );
@@ -215,14 +218,14 @@ Future<void> deleteSessionWithConfirmation(
     if (context.mounted) {
       FrameSnackBar.show(
         context,
-        message: 'Sessione "$sessionName" eliminata.',
+        message: isItalian ? 'Sessione "$sessionName" eliminata.' : 'Session "$sessionName" deleted.',
       );
     }
   } catch (error) {
     if (context.mounted) {
       FrameSnackBar.show(
         context,
-        message: 'Eliminazione non riuscita: $error',
+        message: isItalian ? 'Eliminazione non riuscita: $error' : 'Deletion failed: $error',
       );
     }
   }
@@ -235,6 +238,7 @@ Future<void> removeRepoWithConfirmation(
   required String repoName,
   required List<Map<String, dynamic>> folderSessions,
 }) async {
+  final isItalian = ref.read(appLanguageProvider) == AppLanguage.it;
   // Step 1: Choice dialog
   final choice = await showDialog<String>(
     context: context,
@@ -247,7 +251,7 @@ Future<void> removeRepoWithConfirmation(
             const SizedBox(width: 8),
             Expanded(
               child: Text(
-                'Rimuovi repository "$repoName"',
+                isItalian ? 'Rimuovi repository "$repoName"' : 'Remove repository "$repoName"',
                 overflow: TextOverflow.ellipsis,
               ),
             ),
@@ -258,7 +262,7 @@ Future<void> removeRepoWithConfirmation(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Il repository contiene ${folderSessions.length} session${folderSessions.length == 1 ? 'e' : 'i'}. Scegli cosa desideri fare:',
+              isItalian ? 'Il repository contiene ${folderSessions.length} session${folderSessions.length == 1 ? 'e' : 'i'}. Scegli cosa desideri fare:' : 'This repository contains ${folderSessions.length} session${folderSessions.length == 1 ? '' : 's'}. Choose what to do:',
               style: const TextStyle(fontSize: 13),
             ),
             const SizedBox(height: 16),
@@ -280,13 +284,13 @@ Future<void> removeRepoWithConfirmation(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
-                            'Rimuovi solo dalla vista',
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                          Text(
+                            isItalian ? 'Rimuovi solo dalla vista' : 'Remove from view only',
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            'Nasconde il repository dal pannello sessioni. Nessuna sessione viene eliminata dal disco.',
+                            isItalian ? 'Nasconde il repository dal pannello sessioni. Nessuna sessione viene eliminata dal disco.' : 'Hides the repository from the sessions panel. No sessions are deleted from disk.',
                             style: TextStyle(fontSize: 11, color: tokens.textMuted),
                           ),
                         ],
@@ -316,12 +320,12 @@ Future<void> removeRepoWithConfirmation(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Elimina repository e tutte le sessioni...',
+                            isItalian ? 'Elimina repository e tutte le sessioni...' : 'Remove repository and delete all sessions...',
                             style: TextStyle(fontWeight: FontWeight.bold, color: tokens.danger, fontSize: 13),
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            'Elimina definitivamente dal disco tutte le sessioni di questo repository.',
+                            isItalian ? 'Elimina definitivamente dal disco tutte le sessioni di questo repository.' : 'Permanently deletes all sessions for this repository from disk.',
                             style: TextStyle(fontSize: 11, color: tokens.textMuted),
                           ),
                         ],
@@ -336,7 +340,7 @@ Future<void> removeRepoWithConfirmation(
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Annulla'),
+            child: Text(isItalian ? 'Annulla' : 'Cancel'),
           ),
         ],
       );
@@ -351,9 +355,9 @@ Future<void> removeRepoWithConfirmation(
     if (context.mounted) {
       FrameSnackBar.show(
         context,
-        message: 'Repository "$repoName" rimosso dal riquadro.',
+        message: isItalian ? 'Repository "$repoName" rimosso dal riquadro.' : 'Repository "$repoName" removed from the panel.',
         action: SnackBarAction(
-          label: 'Ripristina',
+          label: isItalian ? 'Ripristina' : 'Restore',
           onPressed: () {
             ref.read(removedReposProvider.notifier).restoreRepo(folder);
             ref.invalidate(sessionListProvider);
@@ -372,6 +376,7 @@ Future<void> removeRepoWithConfirmation(
         folder: folder,
         repoName: repoName,
         sessionsCount: folderSessions.length,
+        isItalian: isItalian,
       ),
     );
 
@@ -401,14 +406,14 @@ Future<void> removeRepoWithConfirmation(
       if (context.mounted) {
         FrameSnackBar.show(
           context,
-          message: 'Tutte le sessioni di "$repoName" sono state eliminate.',
+          message: isItalian ? 'Tutte le sessioni di "$repoName" sono state eliminate.' : 'All sessions for "$repoName" were deleted.',
         );
       }
     } catch (error) {
       if (context.mounted) {
         FrameSnackBar.show(
           context,
-          message: 'Errore durante l\'eliminazione: $error',
+          message: isItalian ? 'Errore durante l\'eliminazione: $error' : 'Deletion failed: $error',
         );
       }
     }
@@ -419,11 +424,13 @@ class _DeleteRepoConfirmDialog extends StatefulWidget {
   final String folder;
   final String repoName;
   final int sessionsCount;
+  final bool isItalian;
 
   const _DeleteRepoConfirmDialog({
     required this.folder,
     required this.repoName,
     required this.sessionsCount,
+    required this.isItalian,
   });
 
   @override
@@ -450,7 +457,7 @@ class _DeleteRepoConfirmDialogState extends State<_DeleteRepoConfirmDialog> {
         children: [
           Icon(Icons.warning_amber_rounded, color: tokens.danger, size: 24),
           const SizedBox(width: 8),
-          const Expanded(child: Text('ATTENZIONE: Eliminazione')),
+          Expanded(child: Text(widget.isItalian ? 'ATTENZIONE: Eliminazione' : 'WARNING: Deletion')),
         ],
       ),
       content: Column(
@@ -458,10 +465,10 @@ class _DeleteRepoConfirmDialogState extends State<_DeleteRepoConfirmDialog> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Stai per eliminare definitivamente tutte le ${widget.sessionsCount} sessioni del repository:\n'
+            widget.isItalian ? 'Stai per eliminare definitivamente tutte le ${widget.sessionsCount} sessioni del repository:\n'
             '${widget.folder}\n\n'
             'Questa operazione cancellerà tutti i file di sessione e NON può essere annullata.\n\n'
-            'Per confermare, digita "delete" nel campo sottostante:',
+            'Per confermare, digita "delete" nel campo sottostante:' : 'You are about to permanently delete all ${widget.sessionsCount} sessions for the repository:\n${widget.folder}\n\nThis will delete all session files and CANNOT be undone.\n\nTo confirm, type "delete" below:',
             style: const TextStyle(fontSize: 13),
           ),
           const SizedBox(height: 14),
@@ -480,7 +487,7 @@ class _DeleteRepoConfirmDialogState extends State<_DeleteRepoConfirmDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context, false),
-          child: const Text('Annulla'),
+          child: Text(widget.isItalian ? 'Annulla' : 'Cancel'),
         ),
         FilledButton(
           style: FilledButton.styleFrom(
@@ -488,7 +495,7 @@ class _DeleteRepoConfirmDialogState extends State<_DeleteRepoConfirmDialog> {
             foregroundColor: tokens.surface,
           ),
           onPressed: canDelete ? () => Navigator.pop(context, true) : null,
-          child: const Text('Elimina tutto'),
+          child: Text(widget.isItalian ? 'Elimina tutto' : 'Delete all'),
         ),
       ],
     );

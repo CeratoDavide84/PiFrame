@@ -36,13 +36,17 @@ final gitUnstagedExpandedProvider = StateProvider.family<bool, String>(
 
 String _repositoryLoadError(Object error, AppLanguage language) {
   final message = error.toString();
-  if (message.contains('Session working directory is not inside a Git repository.')) {
+  if (message.contains(
+    'Session working directory is not inside a Git repository.',
+  )) {
     return language == AppLanguage.it
         ? 'Impossibile verificare il repository. Controlla che la cartella della sessione sia in un repository Git e che Git sia installato e disponibile nel PATH del daemon. Se hai modificato il PATH, riavvia PiFrame e il daemon quando non ci sono sessioni Pi attive.'
         : 'Unable to check the repository. Make sure the session folder is inside a Git repository and Git is installed and available on the daemon’s PATH. If you changed PATH, restart PiFrame and the daemon when no Pi sessions are active.';
   }
   if (message.contains('Unsupported command type: workspace.listFiles')) {
-    return 'Daemon obsoleto: esegui `pnpm run build:agentd`, ricostruisci PiFrame e riavvia il daemon solo quando nessun worker Pi è attivo.';
+    return language == AppLanguage.it
+        ? 'Daemon obsoleto: esegui `pnpm run build:agentd`, ricostruisci PiFrame e riavvia il daemon solo quando nessun worker Pi è attivo.'
+        : 'The daemon is out of date: run `pnpm run build:agentd`, rebuild PiFrame, and restart the daemon only when no Pi worker is active.';
   }
   return message;
 }
@@ -85,13 +89,28 @@ String _changeOriginLabel(
   String path,
   Set<String> piTouchedPaths,
   Set<String> manualSavedPaths,
+  AppLanguage language,
 ) {
   final touchedByPi = _pathSetContains(piTouchedPaths, path);
   final savedHere = _pathSetContains(manualSavedPaths, path);
-  if (touchedByPi && savedHere) return 'Tool Pi + salvataggio PiFrame';
-  if (touchedByPi) return 'Tool Pi ha scritto il percorso';
-  if (savedHere) return 'Salvato da te in PiFrame';
-  return 'Origine non determinata';
+  if (touchedByPi && savedHere) {
+    return language == AppLanguage.it
+        ? 'Tool Pi + salvataggio PiFrame'
+        : 'Pi tool + PiFrame save';
+  }
+  if (touchedByPi) {
+    return language == AppLanguage.it
+        ? 'Tool Pi ha scritto il percorso'
+        : 'Pi tool wrote this path';
+  }
+  if (savedHere) {
+    return language == AppLanguage.it
+        ? 'Salvato da te in PiFrame'
+        : 'Saved by you in PiFrame';
+  }
+  return language == AppLanguage.it
+      ? 'Origine non determinata'
+      : 'Origin unknown';
 }
 
 bool _sessionWritesBlocked(SessionState session) =>
@@ -102,6 +121,20 @@ bool _sessionWritesBlocked(SessionState session) =>
       AgentStatus.compacting,
       AgentStatus.awaitingUser,
     }.contains(session.agentStatus);
+
+String _agentStatusLabel(AgentStatus status, AppLanguage language) =>
+    language == AppLanguage.it
+    ? status.label
+    : switch (status) {
+        AgentStatus.idle => 'Idle',
+        AgentStatus.working => 'Working',
+        AgentStatus.retrying => 'Retrying...',
+        AgentStatus.compacting => 'Compacting...',
+        AgentStatus.awaitingUser => 'Waiting for input',
+        AgentStatus.settled => 'Completed',
+        AgentStatus.error => 'Error',
+        AgentStatus.workerError => 'Worker stopped',
+      };
 
 class WorkspaceFileBuffer {
   final String content;
@@ -186,7 +219,10 @@ class RepositoryController extends StateNotifier<RepositoryState> {
         selectedPath: state.selectedPath,
         buffers: state.buffers,
         manualSavedPaths: state.manualSavedPaths,
-        error: _repositoryLoadError(error, _readLanguage?.call() ?? AppLanguage.it),
+        error: _repositoryLoadError(
+          error,
+          _readLanguage?.call() ?? AppLanguage.it,
+        ),
       );
     }
   }
@@ -380,44 +416,53 @@ Future<bool> resolveDirtyRepository(
   final controller = ref.read(repositoryStateProvider(sessionId).notifier);
   if (!controller.currentState.dirty) return true;
   final tokens = context.tokens;
+  final isItalian = ref.read(appLanguageProvider) == AppLanguage.it;
   final session = ref.read(sessionStateFamily(sessionId));
   final writesBlocked = _sessionWritesBlocked(session);
   final canSave = !writesBlocked && ref.read(pcpClientProvider) != null;
   final blockedReason = session.readOnly
-      ? (session.readOnlyReason ?? 'sessione in sola lettura')
+      ? (session.readOnlyReason ??
+            (isItalian ? 'sessione in sola lettura' : 'read-only session'))
       : writesBlocked
-      ? session.agentStatus.label
-      : 'daemon non connesso';
+      ? _agentStatusLabel(
+          session.agentStatus,
+          isItalian ? AppLanguage.it : AppLanguage.en,
+        )
+      : (isItalian ? 'daemon non connesso' : 'daemon disconnected');
   final choice = await showDialog<String>(
     context: context,
     barrierDismissible: false,
     builder: (dialogContext) => AlertDialog(
       backgroundColor: tokens.surface,
-      title: const Text('Modifiche non salvate'),
+      title: Text(isItalian ? 'Modifiche non salvate' : 'Unsaved changes'),
       content: Text(
         canSave
-            ? 'Salva o scarta le modifiche prima di lasciare questa sessione.'
-            : 'Salvataggio non disponibile: $blockedReason. Puoi scartare le modifiche o annullare.',
+            ? (isItalian
+                  ? 'Salva o scarta le modifiche prima di lasciare questa sessione.'
+                  : 'Save or discard your changes before leaving this session.')
+            : (isItalian
+                  ? 'Salvataggio non disponibile: $blockedReason. Puoi scartare le modifiche o annullare.'
+                  : 'Saving is unavailable: $blockedReason. You can discard changes or cancel.'),
       ),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(dialogContext, 'cancel'),
-          child: const Text('Annulla'),
+          child: Text(isItalian ? 'Annulla' : 'Cancel'),
         ),
         if (canSave)
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, 'discard'),
-            child: const Text('Scarta'),
+            child: Text(isItalian ? 'Scarta' : 'Discard'),
           ),
         if (!canSave)
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, 'discard'),
-            child: const Text('Scarta'),
+            child: Text(isItalian ? 'Scarta' : 'Discard'),
           ),
         if (canSave)
           FilledButton(
             onPressed: () => Navigator.pop(dialogContext, 'save'),
-            child: const Text('Salva'),
+            child: Text(isItalian ? 'Salva' : 'Save'),
           ),
       ],
     ),
@@ -452,11 +497,16 @@ Future<void> saveRepositoryFile(
   String path,
 ) async {
   final session = ref.read(sessionStateFamily(sessionId));
+  final isItalian = ref.read(appLanguageProvider) == AppLanguage.it;
   if (_sessionWritesBlocked(session)) {
     throw StateError(
       session.readOnly
-          ? (session.readOnlyReason ?? 'Sessione in sola lettura')
-          : session.agentStatus.label,
+          ? (session.readOnlyReason ??
+                (isItalian ? 'Sessione in sola lettura' : 'Read-only session'))
+          : _agentStatusLabel(
+              session.agentStatus,
+              isItalian ? AppLanguage.it : AppLanguage.en,
+            ),
     );
   }
   final controller = ref.read(repositoryStateProvider(sessionId).notifier);
@@ -475,22 +525,28 @@ Future<void> saveRepositoryFile(
       context: context,
       barrierDismissible: false,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('File modificato altrove'),
+        title: Text(
+          isItalian ? 'File modificato altrove' : 'File changed elsewhere',
+        ),
         content: Text(
-          '$path è cambiato su disco. Il testo locale resta intatto.',
+          isItalian
+              ? '$path è cambiato su disco. Il testo locale resta intatto.'
+              : '$path changed on disk. Your local text is unchanged.',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, 'keep'),
-            child: const Text('Mantieni modifiche'),
+            child: Text(isItalian ? 'Mantieni modifiche' : 'Keep changes'),
           ),
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, 'reload'),
-            child: const Text('Ricarica disco'),
+            child: Text(isItalian ? 'Ricarica disco' : 'Reload from disk'),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(dialogContext, 'overwrite'),
-            child: const Text('Sovrascrivi esplicitamente'),
+            child: Text(
+              isItalian ? 'Sovrascrivi esplicitamente' : 'Overwrite explicitly',
+            ),
           ),
         ],
       ),
@@ -524,6 +580,8 @@ class RepositoryPane extends ConsumerStatefulWidget {
 }
 
 class _RepositoryPaneState extends ConsumerState<RepositoryPane> {
+  String _tr(String it, String en) =>
+      ref.read(appLanguageProvider) == AppLanguage.it ? it : en;
   CodeEditorController? _editor;
   String? _editorPath;
   bool _previewMarkdown = true;
@@ -794,7 +852,7 @@ class _RepositoryPaneState extends ConsumerState<RepositoryPane> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Caricamento file...',
+              _tr('Caricamento file...', 'Loading files...'),
               style: TextStyle(color: tokens.textMuted, fontSize: 11),
             ),
           ],
@@ -804,7 +862,7 @@ class _RepositoryPaneState extends ConsumerState<RepositoryPane> {
     if (repo.files.isEmpty) {
       return Center(
         child: Text(
-          repo.error ?? 'Nessun file disponibile.',
+          repo.error ?? _tr('Nessun file disponibile.', 'No files available.'),
           style: TextStyle(
             color: repo.error == null ? tokens.textMuted : tokens.danger,
           ),
@@ -849,7 +907,7 @@ class _RepositoryPaneState extends ConsumerState<RepositoryPane> {
                   style: TextStyle(color: tokens.textPrimary, fontSize: 12),
                   decoration: InputDecoration(
                     isDense: true,
-                    hintText: 'Cerca file...',
+                    hintText: _tr('Cerca file...', 'Search files...'),
                     hintStyle: TextStyle(color: tokens.textMuted, fontSize: 12),
                     border: InputBorder.none,
                     contentPadding: EdgeInsets.zero,
@@ -865,7 +923,7 @@ class _RepositoryPaneState extends ConsumerState<RepositoryPane> {
                     minWidth: 24,
                     minHeight: 24,
                   ),
-                  tooltip: 'Cancella ricerca',
+                  tooltip: _tr('Cancella ricerca', 'Clear search'),
                   onPressed: () {
                     _searchController.clear();
                     setState(() => _searchQuery = '');
@@ -880,7 +938,10 @@ class _RepositoryPaneState extends ConsumerState<RepositoryPane> {
                   child: Padding(
                     padding: const EdgeInsets.all(16),
                     child: Text(
-                      'Nessun file trovato per "$_searchQuery"',
+                      _tr(
+                        'Nessun file trovato per "$_searchQuery"',
+                        'No files found for "$_searchQuery"',
+                      ),
                       textAlign: TextAlign.center,
                       style: TextStyle(color: tokens.textMuted, fontSize: 12),
                     ),
@@ -942,7 +1003,10 @@ class _RepositoryPaneState extends ConsumerState<RepositoryPane> {
                         );
                         FrameSnackBar.show(
                           context,
-                          message: 'Aggiunto @$filePath alla chat',
+                          message: _tr(
+                            'Aggiunto @$filePath alla chat',
+                            'Added @$filePath to chat',
+                          ),
                         );
                       },
                     );
@@ -967,7 +1031,7 @@ class _RepositoryPaneState extends ConsumerState<RepositoryPane> {
     if (path == null) {
       return Center(
         child: Text(
-          'Seleziona un file',
+          _tr('Seleziona un file', 'Select a file'),
           style: TextStyle(color: tokens.textMuted),
         ),
       );
@@ -975,7 +1039,7 @@ class _RepositoryPaneState extends ConsumerState<RepositoryPane> {
     if (buffer == null) {
       return Center(
         child: Text(
-          repo.error ?? 'Caricamento file...',
+          repo.error ?? _tr('Caricamento file...', 'Loading file...'),
           style: TextStyle(
             color: repo.error == null ? tokens.textMuted : tokens.danger,
           ),
@@ -990,7 +1054,7 @@ class _RepositoryPaneState extends ConsumerState<RepositoryPane> {
             children: [
               if (compact)
                 IconButton(
-                  tooltip: 'Torna ai file',
+                  tooltip: _tr('Torna ai file', 'Back to files'),
                   onPressed: () => ref
                       .read(repositoryStateProvider(widget.sessionId).notifier)
                       .showFileList(),
@@ -1020,7 +1084,7 @@ class _RepositoryPaneState extends ConsumerState<RepositoryPane> {
                     border: Border.all(color: tokens.border),
                   ),
                   child: Text(
-                    'MODIFICATO',
+                    _tr('MODIFICATO', 'MODIFIED'),
                     style: TextStyle(
                       color: tokens.textPrimary,
                       fontSize: 9,
@@ -1045,21 +1109,27 @@ class _RepositoryPaneState extends ConsumerState<RepositoryPane> {
                           if (context.mounted) {
                             FrameSnackBar.show(
                               context,
-                              message: 'Salvataggio non riuscito: $error',
+                              message: _tr(
+                                'Salvataggio non riuscito: $error',
+                                'Save failed: $error',
+                              ),
                             );
                           }
                         }
                       },
-                child: const Text('Salva'),
+                child: Text(_tr('Salva', 'Save')),
               ),
               const SizedBox(width: 4),
               IconButton(
-                tooltip: 'Aggiungi file alla chat',
+                tooltip: _tr('Aggiungi file alla chat', 'Add file to chat'),
                 onPressed: () {
                   appendFileMentionToComposer(ref, widget.sessionId, path);
                   FrameSnackBar.show(
                     context,
-                    message: 'Aggiunto @$path alla chat',
+                    message: _tr(
+                      'Aggiunto @$path alla chat',
+                      'Added @$path to chat',
+                    ),
                   );
                 },
                 icon: const Icon(Icons.add_comment_outlined, size: 16),
@@ -1070,8 +1140,14 @@ class _RepositoryPaneState extends ConsumerState<RepositoryPane> {
                 IconButton(
                   key: const ValueKey('repository-markdown-toggle-btn'),
                   tooltip: _previewMarkdown
-                      ? 'Modifica markdown sorgente'
-                      : 'Visualizza anteprima formattata',
+                      ? _tr(
+                          'Modifica markdown sorgente',
+                          'Edit Markdown source',
+                        )
+                      : _tr(
+                          'Visualizza anteprima formattata',
+                          'Show formatted preview',
+                        ),
                   onPressed: () {
                     setState(() {
                       _previewMarkdown = !_previewMarkdown;
@@ -1089,7 +1165,10 @@ class _RepositoryPaneState extends ConsumerState<RepositoryPane> {
               const SizedBox(width: 4),
               IconButton(
                 key: const ValueKey('repository-editor-search-btn'),
-                tooltip: 'Cerca nel file (Ctrl+F)',
+                tooltip: _tr(
+                  'Cerca nel file (Ctrl+F)',
+                  'Find in file (Ctrl+F)',
+                ),
                 onPressed: _openFileSearch,
                 icon: Icon(
                   Icons.search,
@@ -1099,7 +1178,7 @@ class _RepositoryPaneState extends ConsumerState<RepositoryPane> {
               ),
               const SizedBox(width: 4),
               IconButton(
-                tooltip: 'Chiudi file',
+                tooltip: _tr('Chiudi file', 'Close file'),
                 onPressed: () => ref
                     .read(repositoryStateProvider(widget.sessionId).notifier)
                     .showFileList(),
@@ -1119,7 +1198,8 @@ class _RepositoryPaneState extends ConsumerState<RepositoryPane> {
             ),
           ),
         Expanded(
-          child: (path.toLowerCase().endsWith('.md') ||
+          child:
+              (path.toLowerCase().endsWith('.md') ||
                       path.toLowerCase().endsWith('.markdown')) &&
                   _previewMarkdown
               ? Container(
@@ -1147,251 +1227,290 @@ class _RepositoryPaneState extends ConsumerState<RepositoryPane> {
               : Stack(
                   children: [
                     Focus(
-                focusNode: _editorFocusNode,
-                onKeyEvent: (node, event) {
-                  if (event is KeyDownEvent) {
-                    final isControl =
-                        HardwareKeyboard.instance.isControlPressed ||
-                        HardwareKeyboard.instance.isMetaPressed;
-                    if (isControl &&
-                        event.logicalKey == LogicalKeyboardKey.keyF) {
-                      _openFileSearch();
-                      return KeyEventResult.handled;
-                    }
-                  }
-                  return KeyEventResult.ignored;
-                },
-                child: TextField(
-                  key: ValueKey('repository-editor-${widget.sessionId}'),
-                  controller: _editor,
-                  enabled: !readOnly,
-                  onChanged: (value) => ref
-                      .read(repositoryStateProvider(widget.sessionId).notifier)
-                      .edit(path, value),
-                  contextMenuBuilder: (context, editorState) {
-                    final selection = editorState.textEditingValue.selection;
-                    final items = List<ContextMenuButtonItem>.of(
-                      editorState.contextMenuButtonItems,
-                    );
-                    if (selection.isValid && !selection.isCollapsed) {
-                      items.add(
-                        ContextMenuButtonItem(
-                          label: 'Aggiungi alla chat',
-                          onPressed: () {
-                            appendCodeSelectionToComposer(
-                              ref,
-                              widget.sessionId,
-                              path,
-                              editorState.textEditingValue.text,
-                              selection,
-                            );
-                            editorState.hideToolbar();
-                          },
-                        ),
-                      );
-                    }
-                    return AdaptiveTextSelectionToolbar.buttonItems(
-                      anchors: editorState.contextMenuAnchors,
-                      buttonItems: items,
-                    );
-                  },
-                  expands: true,
-                  maxLines: null,
-                  minLines: null,
-                  textAlignVertical: TextAlignVertical.top,
-                  style: TextStyle(
-                    fontFamily: tokens.monoFontFamily,
-                    fontSize: 12,
-                    color: tokens.textPrimary,
-                  ),
-                  decoration: InputDecoration(
-                    filled: true,
-                    fillColor: tokens.background,
-                    contentPadding: const EdgeInsets.all(12),
-                    border: InputBorder.none,
-                    hintText: writeBlocked ? 'Sola lettura' : 'Contenuto file',
-                  ),
-                ),
-              ),
-              if (_showFileSearch)
-                Positioned(
-                  top: 8,
-                  right: 16,
-                  child: Focus(
-                    onKeyEvent: (node, event) {
-                      if (event is KeyDownEvent) {
-                        if (event.logicalKey == LogicalKeyboardKey.escape) {
-                          _closeFileSearch();
-                          return KeyEventResult.handled;
-                        } else if (event.logicalKey ==
-                                LogicalKeyboardKey.enter ||
-                            event.logicalKey ==
-                                LogicalKeyboardKey.numpadEnter) {
-                          if (HardwareKeyboard.instance.isShiftPressed) {
-                            _prevFileSearchMatch();
-                          } else {
-                            _nextFileSearchMatch();
+                      focusNode: _editorFocusNode,
+                      onKeyEvent: (node, event) {
+                        if (event is KeyDownEvent) {
+                          final isControl =
+                              HardwareKeyboard.instance.isControlPressed ||
+                              HardwareKeyboard.instance.isMetaPressed;
+                          if (isControl &&
+                              event.logicalKey == LogicalKeyboardKey.keyF) {
+                            _openFileSearch();
+                            return KeyEventResult.handled;
                           }
-                          return KeyEventResult.handled;
                         }
-                      }
-                      return KeyEventResult.ignored;
-                    },
-                    child: Container(
-                      key: const ValueKey('repository-file-search-bar'),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
+                        return KeyEventResult.ignored;
+                      },
+                      child: TextField(
+                        key: ValueKey('repository-editor-${widget.sessionId}'),
+                        controller: _editor,
+                        enabled: !readOnly,
+                        onChanged: (value) => ref
+                            .read(
+                              repositoryStateProvider(widget.sessionId)
+                                  .notifier,
+                            )
+                            .edit(path, value),
+                        contextMenuBuilder: (context, editorState) {
+                          final selection =
+                              editorState.textEditingValue.selection;
+                          final items = List<ContextMenuButtonItem>.of(
+                            editorState.contextMenuButtonItems,
+                          );
+                          if (selection.isValid && !selection.isCollapsed) {
+                            items.add(
+                              ContextMenuButtonItem(
+                                label: _tr('Aggiungi alla chat', 'Add to chat'),
+                                onPressed: () {
+                                  appendCodeSelectionToComposer(
+                                    ref,
+                                    widget.sessionId,
+                                    path,
+                                    editorState.textEditingValue.text,
+                                    selection,
+                                  );
+                                  editorState.hideToolbar();
+                                },
+                              ),
+                            );
+                          }
+                          return AdaptiveTextSelectionToolbar.buttonItems(
+                            anchors: editorState.contextMenuAnchors,
+                            buttonItems: items,
+                          );
+                        },
+                        expands: true,
+                        maxLines: null,
+                        minLines: null,
+                        textAlignVertical: TextAlignVertical.top,
+                        style: TextStyle(
+                          fontFamily: tokens.monoFontFamily,
+                          fontSize: 12,
+                          color: tokens.textPrimary,
+                        ),
+                        decoration: InputDecoration(
+                          filled: true,
+                          fillColor: tokens.background,
+                          contentPadding: const EdgeInsets.all(12),
+                          border: InputBorder.none,
+                          hintText: writeBlocked
+                              ? _tr('Sola lettura', 'Read-only')
+                              : _tr('Contenuto file', 'File contents'),
+                        ),
                       ),
-                      decoration: BoxDecoration(
-                        color: tokens.surfaceElevated,
-                        borderRadius: BorderRadius.circular(tokens.radiusSm),
-                        border: Border.all(color: tokens.borderStrong),
-                        boxShadow: [
-                          BoxShadow(
-                            color: tokens.borderStrong.withValues(alpha: 0.25),
-                            blurRadius: 8,
-                            offset: const Offset(0, 3),
-                          ),
-                        ],
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.search, size: 14, color: tokens.textMuted),
-                          const SizedBox(width: 6),
-                          SizedBox(
-                            width: 170,
-                            height: 26,
-                            child: TextField(
-                              key: const ValueKey(
-                                'repository-file-search-field',
-                              ),
-                              controller: _fileSearchQueryController,
-                              focusNode: _fileSearchFocusNode,
-                              style: TextStyle(
-                                color: tokens.textPrimary,
-                                fontSize: 12,
-                              ),
-                              decoration: InputDecoration(
-                                isDense: true,
-                                hintText: 'Cerca nel file...',
-                                hintStyle: TextStyle(
-                                  color: tokens.textMuted,
-                                  fontSize: 12,
-                                ),
-                                border: InputBorder.none,
-                                contentPadding: const EdgeInsets.symmetric(
-                                  vertical: 4,
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          Container(
+                    ),
+                    if (_showFileSearch)
+                      Positioned(
+                        top: 8,
+                        right: 16,
+                        child: Focus(
+                          onKeyEvent: (node, event) {
+                            if (event is KeyDownEvent) {
+                              if (event.logicalKey ==
+                                  LogicalKeyboardKey.escape) {
+                                _closeFileSearch();
+                                return KeyEventResult.handled;
+                              } else if (event.logicalKey ==
+                                      LogicalKeyboardKey.enter ||
+                                  event.logicalKey ==
+                                      LogicalKeyboardKey.numpadEnter) {
+                                if (HardwareKeyboard.instance.isShiftPressed) {
+                                  _prevFileSearchMatch();
+                                } else {
+                                  _nextFileSearchMatch();
+                                }
+                                return KeyEventResult.handled;
+                              }
+                            }
+                            return KeyEventResult.ignored;
+                          },
+                          child: Container(
+                            key: const ValueKey('repository-file-search-bar'),
                             padding: const EdgeInsets.symmetric(
-                              horizontal: 5,
-                              vertical: 2,
+                              horizontal: 8,
+                              vertical: 4,
                             ),
                             decoration: BoxDecoration(
-                              color: tokens.surface,
+                              color: tokens.surfaceElevated,
                               borderRadius: BorderRadius.circular(
                                 tokens.radiusSm,
                               ),
+                              border: Border.all(color: tokens.borderStrong),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: tokens.borderStrong.withValues(
+                                    alpha: 0.25,
+                                  ),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 3),
+                                ),
+                              ],
                             ),
-                            child: Text(
-                              _fileSearchQueryController.text.isEmpty
-                                  ? ''
-                                  : _fileSearchMatches.isEmpty
-                                  ? '0 risultati'
-                                  : '${_fileSearchCurrentIndex + 1} di ${_fileSearchMatches.length}',
-                              style: TextStyle(
-                                color:
-                                    _fileSearchMatches.isEmpty &&
-                                        _fileSearchQueryController
-                                            .text
-                                            .isNotEmpty
-                                    ? tokens.danger
-                                    : tokens.textMuted,
-                                fontSize: 10,
-                                fontWeight: FontWeight.w600,
-                              ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.search,
+                                  size: 14,
+                                  color: tokens.textMuted,
+                                ),
+                                const SizedBox(width: 6),
+                                SizedBox(
+                                  width: 170,
+                                  height: 26,
+                                  child: TextField(
+                                    key: const ValueKey(
+                                      'repository-file-search-field',
+                                    ),
+                                    controller: _fileSearchQueryController,
+                                    focusNode: _fileSearchFocusNode,
+                                    style: TextStyle(
+                                      color: tokens.textPrimary,
+                                      fontSize: 12,
+                                    ),
+                                    decoration: InputDecoration(
+                                      isDense: true,
+                                      hintText: _tr(
+                                        'Cerca nel file...',
+                                        'Find in file...',
+                                      ),
+                                      hintStyle: TextStyle(
+                                        color: tokens.textMuted,
+                                        fontSize: 12,
+                                      ),
+                                      border: InputBorder.none,
+                                      contentPadding:
+                                          const EdgeInsets.symmetric(
+                                            vertical: 4,
+                                          ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 5,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: tokens.surface,
+                                    borderRadius: BorderRadius.circular(
+                                      tokens.radiusSm,
+                                    ),
+                                  ),
+                                  child: Text(
+                                    _fileSearchQueryController.text.isEmpty
+                                        ? ''
+                                        : _fileSearchMatches.isEmpty
+                                        ? '0 risultati'
+                                        : '${_fileSearchCurrentIndex + 1} di ${_fileSearchMatches.length}',
+                                    style: TextStyle(
+                                      color:
+                                          _fileSearchMatches.isEmpty &&
+                                              _fileSearchQueryController
+                                                  .text
+                                                  .isNotEmpty
+                                          ? tokens.danger
+                                          : tokens.textMuted,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                IconButton(
+                                  key: const ValueKey(
+                                    'repository-file-search-prev',
+                                  ),
+                                  tooltip: _tr(
+                                    'Precedente (Shift+Enter)',
+                                    'Previous (Shift+Enter)',
+                                  ),
+                                  icon: const Icon(
+                                    Icons.keyboard_arrow_up,
+                                    size: 16,
+                                  ),
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(
+                                    minWidth: 22,
+                                    minHeight: 22,
+                                  ),
+                                  onPressed: _fileSearchMatches.isEmpty
+                                      ? null
+                                      : _prevFileSearchMatch,
+                                ),
+                                IconButton(
+                                  key: const ValueKey(
+                                    'repository-file-search-next',
+                                  ),
+                                  tooltip: _tr(
+                                    'Successivo (Enter)',
+                                    'Next (Enter)',
+                                  ),
+                                  icon: const Icon(
+                                    Icons.keyboard_arrow_down,
+                                    size: 16,
+                                  ),
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(
+                                    minWidth: 22,
+                                    minHeight: 22,
+                                  ),
+                                  onPressed: _fileSearchMatches.isEmpty
+                                      ? null
+                                      : _nextFileSearchMatch,
+                                ),
+                                IconButton(
+                                  key: const ValueKey(
+                                    'repository-file-search-case',
+                                  ),
+                                  tooltip: _tr(
+                                    'Distingui maiuscole/minuscole',
+                                    'Match case',
+                                  ),
+                                  icon: Text(
+                                    'Aa',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      color: _fileSearchCaseSensitive
+                                          ? tokens.accent
+                                          : tokens.textMuted,
+                                    ),
+                                  ),
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(
+                                    minWidth: 22,
+                                    minHeight: 22,
+                                  ),
+                                  onPressed: () {
+                                    setState(() {
+                                      _fileSearchCaseSensitive =
+                                          !_fileSearchCaseSensitive;
+                                    });
+                                    _updateFileSearch();
+                                  },
+                                ),
+                                IconButton(
+                                  key: const ValueKey(
+                                    'repository-file-search-close',
+                                  ),
+                                  tooltip: _tr('Chiudi (Esc)', 'Close (Esc)'),
+                                  icon: const Icon(Icons.close, size: 14),
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(
+                                    minWidth: 22,
+                                    minHeight: 22,
+                                  ),
+                                  onPressed: _closeFileSearch,
+                                ),
+                              ],
                             ),
                           ),
-                          const SizedBox(width: 4),
-                          IconButton(
-                            key: const ValueKey('repository-file-search-prev'),
-                            tooltip: 'Precedente (Shift+Enter)',
-                            icon: const Icon(Icons.keyboard_arrow_up, size: 16),
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(
-                              minWidth: 22,
-                              minHeight: 22,
-                            ),
-                            onPressed: _fileSearchMatches.isEmpty
-                                ? null
-                                : _prevFileSearchMatch,
-                          ),
-                          IconButton(
-                            key: const ValueKey('repository-file-search-next'),
-                            tooltip: 'Successivo (Enter)',
-                            icon: const Icon(
-                              Icons.keyboard_arrow_down,
-                              size: 16,
-                            ),
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(
-                              minWidth: 22,
-                              minHeight: 22,
-                            ),
-                            onPressed: _fileSearchMatches.isEmpty
-                                ? null
-                                : _nextFileSearchMatch,
-                          ),
-                          IconButton(
-                            key: const ValueKey('repository-file-search-case'),
-                            tooltip: 'Distingui maiuscole/minuscole',
-                            icon: Text(
-                              'Aa',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                                color: _fileSearchCaseSensitive
-                                    ? tokens.accent
-                                    : tokens.textMuted,
-                              ),
-                            ),
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(
-                              minWidth: 22,
-                              minHeight: 22,
-                            ),
-                            onPressed: () {
-                              setState(() {
-                                _fileSearchCaseSensitive =
-                                    !_fileSearchCaseSensitive;
-                              });
-                              _updateFileSearch();
-                            },
-                          ),
-                          IconButton(
-                            key: const ValueKey('repository-file-search-close'),
-                            tooltip: 'Chiudi (Esc)',
-                            icon: const Icon(Icons.close, size: 14),
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(
-                              minWidth: 22,
-                              minHeight: 22,
-                            ),
-                            onPressed: _closeFileSearch,
-                          ),
-                        ],
+                        ),
                       ),
-                    ),
-                  ),
+                  ],
                 ),
-            ],
-          ),
         ),
       ],
     );
@@ -1399,6 +1518,7 @@ class _RepositoryPaneState extends ConsumerState<RepositoryPane> {
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(appLanguageProvider);
     final tokens = context.tokens;
     final editor = _ensureEditor(tokens);
     final repo = ref.watch(repositoryStateProvider(widget.sessionId));
@@ -1467,9 +1587,13 @@ class _RepositoryPaneState extends ConsumerState<RepositoryPane> {
           AgentStatus.awaitingUser,
         }.contains(agentStatus);
     final blockReason = readOnly
-        ? (readOnlyReason ?? 'Sessione in sola lettura')
+        ? (readOnlyReason ??
+              _tr('Sessione in sola lettura', 'Read-only session'))
         : writeBlocked
-        ? 'Salvataggio disabilitato: ${agentStatus.label}.'
+        ? _tr(
+            'Salvataggio disabilitato: ${_agentStatusLabel(agentStatus, AppLanguage.it)}.',
+            'Saving disabled: ${_agentStatusLabel(agentStatus, AppLanguage.en)}.',
+          )
         : null;
     return Container(
       decoration: BoxDecoration(color: tokens.surface),
@@ -1497,22 +1621,24 @@ class _RepositoryPaneState extends ConsumerState<RepositoryPane> {
                     tooltip:
                         ref.watch(terminalSettingsProvider).mode ==
                             TerminalMode.native
-                        ? 'Apri terminale nativo (OS)'
+                        ? _tr(
+                            'Apri terminale nativo (OS)',
+                            'Open system terminal',
+                          )
                         : (_terminalOpen && !_terminalCollapsed
-                              ? 'Nascondi terminale'
-                              : 'Terminale integrato'),
+                              ? _tr('Nascondi terminale', 'Hide terminal')
+                              : _tr(
+                                  'Terminale integrato',
+                                  'Integrated terminal',
+                                )),
                     onPressed: () {
-                      final termSettings = ref.read(
-                        terminalSettingsProvider,
-                      );
+                      final termSettings = ref.read(terminalSettingsProvider);
                       if (termSettings.mode == TerminalMode.native) {
                         launchNativeTerminal(
                           cwd:
                               repo.rootPath ??
                               ref
-                                  .read(
-                                    sessionStateFamily(widget.sessionId),
-                                  )
+                                  .read(sessionStateFamily(widget.sessionId))
                                   .cwd,
                           nativeApp: termSettings.nativeApp,
                           customPath: termSettings.customPath,
@@ -1532,7 +1658,10 @@ class _RepositoryPaneState extends ConsumerState<RepositoryPane> {
                   visualDensity: VisualDensity.compact,
                   padding: const EdgeInsets.all(4),
                   constraints: const BoxConstraints(),
-                  tooltip: 'Collassa tutte le cartelle',
+                  tooltip: _tr(
+                    'Collassa tutte le cartelle',
+                    'Collapse all folders',
+                  ),
                   onPressed: _collapseAll,
                   icon: const Icon(Icons.unfold_less, size: 16),
                 ),
@@ -1541,7 +1670,10 @@ class _RepositoryPaneState extends ConsumerState<RepositoryPane> {
                   visualDensity: VisualDensity.compact,
                   padding: const EdgeInsets.all(4),
                   constraints: const BoxConstraints(),
-                  tooltip: 'Espandi tutte le cartelle',
+                  tooltip: _tr(
+                    'Espandi tutte le cartelle',
+                    'Expand all folders',
+                  ),
                   onPressed: () => _expandAll(repo.files),
                   icon: const Icon(Icons.unfold_more, size: 16),
                 ),
@@ -1550,7 +1682,7 @@ class _RepositoryPaneState extends ConsumerState<RepositoryPane> {
                   visualDensity: VisualDensity.compact,
                   padding: const EdgeInsets.all(4),
                   constraints: const BoxConstraints(),
-                  tooltip: 'Aggiorna file',
+                  tooltip: _tr('Aggiorna file', 'Refresh files'),
                   onPressed: repo.loading
                       ? null
                       : () => ref
@@ -1567,7 +1699,10 @@ class _RepositoryPaneState extends ConsumerState<RepositoryPane> {
                     visualDensity: VisualDensity.compact,
                     padding: const EdgeInsets.all(4),
                     constraints: const BoxConstraints(),
-                    tooltip: 'Collassa pannello Repository',
+                    tooltip: _tr(
+                      'Collassa pannello Repository',
+                      'Collapse repository panel',
+                    ),
                     onPressed: widget.onCollapse,
                     icon: const Icon(Icons.chevron_left, size: 18),
                   ),
@@ -1722,7 +1857,10 @@ class _RepositoryPaneState extends ConsumerState<RepositoryPane> {
             Padding(
               padding: const EdgeInsets.all(8),
               child: Text(
-                'Elenco file limitato dal daemon.',
+                _tr(
+                  'Elenco file limitato dal daemon.',
+                  'File list truncated by the daemon.',
+                ),
                 style: TextStyle(color: tokens.textMuted, fontSize: 10),
               ),
             ),
@@ -1748,7 +1886,7 @@ class _RepositoryPaneState extends ConsumerState<RepositoryPane> {
             Icon(Icons.terminal, size: 13, color: tokens.displayText),
             const SizedBox(width: 6),
             Text(
-              'TERMINALE',
+              _tr('TERMINALE', 'TERMINAL'),
               style: TextStyle(
                 color: tokens.displayText,
                 fontSize: 11,
@@ -1761,7 +1899,7 @@ class _RepositoryPaneState extends ConsumerState<RepositoryPane> {
               visualDensity: VisualDensity.compact,
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(minWidth: 22, minHeight: 22),
-              tooltip: 'Espandi terminale',
+              tooltip: _tr('Espandi terminale', 'Expand terminal'),
               icon: const Icon(Icons.unfold_more, size: 14),
               onPressed: () => setState(() => _terminalCollapsed = false),
             ),
@@ -1770,7 +1908,7 @@ class _RepositoryPaneState extends ConsumerState<RepositoryPane> {
               visualDensity: VisualDensity.compact,
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(minWidth: 22, minHeight: 22),
-              tooltip: 'Chiudi terminale',
+              tooltip: _tr('Chiudi terminale', 'Close terminal'),
               icon: const Icon(Icons.close, size: 13),
               onPressed: () => setState(() => _terminalOpen = false),
             ),
@@ -1800,6 +1938,8 @@ class GitChangesPane extends ConsumerStatefulWidget {
 }
 
 class _GitChangesPaneState extends ConsumerState<GitChangesPane> {
+  String _tr(String it, String en) =>
+      ref.read(appLanguageProvider) == AppLanguage.it ? it : en;
   Map<String, dynamic>? _status;
   bool _loading = false;
   bool _working = false;
@@ -1828,14 +1968,22 @@ class _GitChangesPaneState extends ConsumerState<GitChangesPane> {
   Future<void> _refresh() async {
     final client = ref.read(pcpClientProvider);
     if (client == null) {
-      if (mounted) setState(() => _status = {'error': 'Daemon non connesso'});
+      if (mounted) {
+        setState(
+          () => _status = {
+            'error': _tr('Daemon non connesso', 'Daemon disconnected'),
+          },
+        );
+      }
       return;
     }
     setState(() => _loading = true);
     try {
       final result = await client.refreshWorkspace(widget.sessionId);
       if (mounted) {
-        setState(() => _status = (result['data'] as Map<String, dynamic>?) ?? result);
+        setState(
+          () => _status = (result['data'] as Map<String, dynamic>?) ?? result,
+        );
       }
     } catch (e) {
       if (mounted) setState(() => _status = {'error': e.toString()});
@@ -1879,7 +2027,10 @@ class _GitChangesPaneState extends ConsumerState<GitChangesPane> {
       if (mounted) {
         FrameSnackBar.show(
           context,
-          message: 'Operazione Git non riuscita: $error',
+          message: _tr(
+            'Operazione Git non riuscita: $error',
+            'Git operation failed: $error',
+          ),
         );
       }
     } finally {
@@ -1895,7 +2046,8 @@ class _GitChangesPaneState extends ConsumerState<GitChangesPane> {
         widget.sessionId,
         filePath: path,
       );
-      final diff = (result['data']?['diff'] ?? result['diff'])?.toString() ?? '';
+      final diff =
+          (result['data']?['diff'] ?? result['diff'])?.toString() ?? '';
       if (!mounted) return;
       await showDialog<void>(
         context: context,
@@ -1928,7 +2080,7 @@ class _GitChangesPaneState extends ConsumerState<GitChangesPane> {
                           ),
                         ),
                         IconButton(
-                          tooltip: 'Chiudi diff',
+                          tooltip: _tr('Chiudi diff', 'Close diff'),
                           onPressed: () => Navigator.pop(dialogContext),
                           icon: const Icon(Icons.close),
                         ),
@@ -1939,7 +2091,10 @@ class _GitChangesPaneState extends ConsumerState<GitChangesPane> {
                       child: SingleChildScrollView(
                         child: DiffBlock(
                           diffText: diff.isEmpty
-                              ? 'Nessuna differenza trovata.'
+                              ? _tr(
+                                  'Nessuna differenza trovata.',
+                                  'No differences found.',
+                                )
                               : diff,
                           filename: path,
                         ),
@@ -1956,7 +2111,10 @@ class _GitChangesPaneState extends ConsumerState<GitChangesPane> {
       if (mounted) {
         FrameSnackBar.show(
           context,
-          message: 'Diff non disponibile: $error',
+          message: _tr(
+            'Diff non disponibile: $error',
+            'Diff unavailable: $error',
+          ),
         );
       }
     }
@@ -1977,7 +2135,9 @@ class _GitChangesPaneState extends ConsumerState<GitChangesPane> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Annullare tutte le modifiche?'),
+        title: Text(
+          _tr('Annullare tutte le modifiche?', 'Discard all changes?'),
+        ),
         content: Builder(
           builder: (dialogContext) {
             final mediaSize = MediaQuery.sizeOf(dialogContext);
@@ -1994,14 +2154,19 @@ class _GitChangesPaneState extends ConsumerState<GitChangesPane> {
                   Expanded(
                     child: SingleChildScrollView(
                       child: DiffBlock(
-                        diffText: diff.isEmpty ? 'Diff non disponibile.' : diff,
+                        diffText: diff.isEmpty
+                            ? _tr('Diff non disponibile.', 'Diff unavailable.')
+                            : diff,
                         filename: path,
                       ),
                     ),
                   ),
                   const SizedBox(height: 8),
-                  const Text(
-                    'L’operazione rimuove modifiche staged e unstaged.',
+                  Text(
+                    _tr(
+                      'L’operazione rimuove modifiche staged e unstaged.',
+                      'This removes staged and unstaged changes.',
+                    ),
                   ),
                 ],
               ),
@@ -2011,11 +2176,11 @@ class _GitChangesPaneState extends ConsumerState<GitChangesPane> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Annulla'),
+            child: Text(_tr('Annulla', 'Cancel')),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('Annulla modifiche'),
+            child: Text(_tr('Annulla modifiche', 'Discard changes')),
           ),
         ],
       ),
@@ -2030,7 +2195,7 @@ class _GitChangesPaneState extends ConsumerState<GitChangesPane> {
     final message = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Commit dei file staged'),
+        title: Text(_tr('Commit dei file staged', 'Commit staged files')),
         content: ConstrainedBox(
           constraints: BoxConstraints(
             maxWidth: 520,
@@ -2052,8 +2217,8 @@ class _GitChangesPaneState extends ConsumerState<GitChangesPane> {
                 TextField(
                   controller: _message,
                   autofocus: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Messaggio commit',
+                  decoration: InputDecoration(
+                    labelText: _tr('Messaggio commit', 'Commit message'),
                   ),
                 ),
               ],
@@ -2063,7 +2228,7 @@ class _GitChangesPaneState extends ConsumerState<GitChangesPane> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Annulla'),
+            child: Text(_tr('Annulla', 'Cancel')),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, _message.text.trim()),
@@ -2176,7 +2341,7 @@ class _GitChangesPaneState extends ConsumerState<GitChangesPane> {
           ),
         ),
         subtitle: Text(
-          '${file['status'] ?? 'modified'} · $stateLabel · ${_changeOriginLabel(path, piTouchedPaths, manualSavedPaths)}',
+          '${file['status'] ?? 'modified'} · $stateLabel · ${_changeOriginLabel(path, piTouchedPaths, manualSavedPaths, ref.read(appLanguageProvider))}',
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: TextStyle(
@@ -2192,7 +2357,7 @@ class _GitChangesPaneState extends ConsumerState<GitChangesPane> {
             children: [
               if (isStaged)
                 IconButton(
-                  tooltip: 'Togli dallo stage $path',
+                  tooltip: _tr('Togli dallo stage $path', 'Unstage $path'),
                   visualDensity: VisualDensity.compact,
                   padding: EdgeInsets.zero,
                   onPressed: blocked || _working
@@ -2202,7 +2367,7 @@ class _GitChangesPaneState extends ConsumerState<GitChangesPane> {
                 )
               else if (hasUnstagedEdit || !isStaged)
                 IconButton(
-                  tooltip: 'Metti in stage $path',
+                  tooltip: _tr('Metti in stage $path', 'Stage $path'),
                   visualDensity: VisualDensity.compact,
                   padding: EdgeInsets.zero,
                   onPressed: blocked || _working
@@ -2211,7 +2376,10 @@ class _GitChangesPaneState extends ConsumerState<GitChangesPane> {
                   icon: const Icon(Icons.add, size: 17),
                 ),
               IconButton(
-                tooltip: 'Annulla modifiche a $path',
+                tooltip: _tr(
+                  'Annulla modifiche a $path',
+                  'Discard changes to $path',
+                ),
                 visualDensity: VisualDensity.compact,
                 padding: EdgeInsets.zero,
                 onPressed: blocked || _working
@@ -2240,6 +2408,7 @@ class _GitChangesPaneState extends ConsumerState<GitChangesPane> {
         ),
       ),
     );
+    ref.watch(appLanguageProvider);
     final repository = ref.watch(repositoryStateProvider(widget.sessionId));
 
     ref.listen<String>(
@@ -2253,7 +2422,8 @@ class _GitChangesPaneState extends ConsumerState<GitChangesPane> {
     );
 
     ref.listen<String>(
-      sessionStateFamily(widget.sessionId).select((s) => _piTouchedPaths(s).join('\x00')),
+      sessionStateFamily(widget.sessionId)
+          .select((s) => _piTouchedPaths(s).join('\x00')),
       (prev, next) {
         if (prev != null && prev != next) {
           _refresh();
@@ -2378,7 +2548,10 @@ class _GitChangesPaneState extends ConsumerState<GitChangesPane> {
                 if (ref.watch(browserPaneSupportedProvider))
                   IconButton(
                     key: const ValueKey('git-switch-to-browser-btn'),
-                    tooltip: 'Passa a Web Browser',
+                    tooltip: _tr(
+                      'Passa a Web Browser',
+                      'Switch to web browser',
+                    ),
                     visualDensity: VisualDensity.compact,
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(
@@ -2392,10 +2565,13 @@ class _GitChangesPaneState extends ConsumerState<GitChangesPane> {
                     icon: const Icon(Icons.language, size: 16),
                   ),
                 IconButton(
-                  tooltip: 'Aggiorna stato Git',
+                  tooltip: _tr('Aggiorna stato Git', 'Refresh Git status'),
                   visualDensity: VisualDensity.compact,
                   padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
+                  constraints: const BoxConstraints(
+                    minWidth: 26,
+                    minHeight: 26,
+                  ),
                   onPressed: _loading ? null : _refresh,
                   icon: const Icon(Icons.refresh, size: 16),
                 ),
@@ -2405,7 +2581,10 @@ class _GitChangesPaneState extends ConsumerState<GitChangesPane> {
                     visualDensity: VisualDensity.compact,
                     padding: const EdgeInsets.all(4),
                     constraints: const BoxConstraints(),
-                    tooltip: 'Collassa pannello Git Changes',
+                    tooltip: _tr(
+                      'Collassa pannello Git Changes',
+                      'Collapse Git changes panel',
+                    ),
                     onPressed: widget.onCollapse,
                     icon: const Icon(Icons.chevron_right, size: 18),
                   ),
@@ -2438,8 +2617,14 @@ class _GitChangesPaneState extends ConsumerState<GitChangesPane> {
                 ),
                 child: Text(
                   readOnly
-                      ? 'Scritture disabilitate: ${readOnlyReason ?? 'sessione in sola lettura'}'
-                      : 'Scritture disabilitate mentre Pi sta lavorando.',
+                      ? _tr(
+                          'Scritture disabilitate: ${readOnlyReason ?? 'sessione in sola lettura'}',
+                          'Writes disabled: ${readOnlyReason ?? 'read-only session'}',
+                        )
+                      : _tr(
+                          'Scritture disabilitate mentre Pi sta lavorando.',
+                          'Writes are disabled while Pi is working.',
+                        ),
                   style: TextStyle(color: tokens.textPrimary, fontSize: 11),
                 ),
               ),
@@ -2470,7 +2655,10 @@ class _GitChangesPaneState extends ConsumerState<GitChangesPane> {
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            'Collegamento a Git...',
+                            _tr(
+                              'Collegamento a Git...',
+                              'Connecting to Git...',
+                            ),
                             style: TextStyle(
                               color: tokens.textMuted,
                               fontSize: 11,
@@ -2485,7 +2673,8 @@ class _GitChangesPaneState extends ConsumerState<GitChangesPane> {
                 return Expanded(
                   child: Center(
                     child: Text(
-                      rawError ?? 'Nessun repository Git.',
+                      rawError ??
+                          _tr('Nessun repository Git.', 'No Git repository.'),
                       style: TextStyle(
                         color: rawError == null
                             ? tokens.textMuted
@@ -2521,14 +2710,17 @@ class _GitChangesPaneState extends ConsumerState<GitChangesPane> {
               child: files.isEmpty
                   ? Center(
                       child: Text(
-                        'Working tree pulito',
+                        _tr('Working tree pulito', 'Working tree clean'),
                         style: TextStyle(color: tokens.textMuted),
                       ),
                     )
                   : ListView(
                       children: [
                         _buildGitSectionHeader(
-                          title: 'Modifiche preparate (Staged)',
+                          title: _tr(
+                            'Modifiche preparate (Staged)',
+                            'Staged changes',
+                          ),
                           count: stagedFiles.length,
                           isExpanded: isStagedExpanded,
                           tokens: tokens,
@@ -2545,7 +2737,10 @@ class _GitChangesPaneState extends ConsumerState<GitChangesPane> {
                           trailing: stagedFiles.isEmpty || blocked || _working
                               ? null
                               : IconButton(
-                                  tooltip: 'Togli tutti dallo stage',
+                                  tooltip: _tr(
+                                    'Togli tutti dallo stage',
+                                    'Unstage all',
+                                  ),
                                   visualDensity: VisualDensity.compact,
                                   padding: EdgeInsets.zero,
                                   constraints: const BoxConstraints(
@@ -2572,7 +2767,10 @@ class _GitChangesPaneState extends ConsumerState<GitChangesPane> {
                                 vertical: 10,
                               ),
                               child: Text(
-                                'Nessun file preparato.',
+                                _tr(
+                                  'Nessun file preparato.',
+                                  'No staged files.',
+                                ),
                                 style: TextStyle(
                                   color: tokens.textMuted,
                                   fontSize: 11,
@@ -2592,7 +2790,7 @@ class _GitChangesPaneState extends ConsumerState<GitChangesPane> {
                               ),
                         ],
                         _buildGitSectionHeader(
-                          title: 'Modifiche (Changes)',
+                          title: _tr('Modifiche (Changes)', 'Changes'),
                           count: unstagedFiles.length,
                           isExpanded: isUnstagedExpanded,
                           tokens: tokens,
@@ -2609,7 +2807,10 @@ class _GitChangesPaneState extends ConsumerState<GitChangesPane> {
                           trailing: unstagedFiles.isEmpty || blocked || _working
                               ? null
                               : IconButton(
-                                  tooltip: 'Metti tutti in stage',
+                                  tooltip: _tr(
+                                    'Metti tutti in stage',
+                                    'Stage all',
+                                  ),
                                   visualDensity: VisualDensity.compact,
                                   padding: EdgeInsets.zero,
                                   constraints: const BoxConstraints(
@@ -2633,7 +2834,10 @@ class _GitChangesPaneState extends ConsumerState<GitChangesPane> {
                                 vertical: 10,
                               ),
                               child: Text(
-                                'Nessuna modifica non preparata.',
+                                _tr(
+                                  'Nessuna modifica non preparata.',
+                                  'No unstaged changes.',
+                                ),
                                 style: TextStyle(
                                   color: tokens.textMuted,
                                   fontSize: 11,
@@ -2750,7 +2954,7 @@ Widget _paneHeader(
                                     ? Border.all(
                                         color: tokens.borderStrong,
                                         width: 1,
-                                    )
+                                      )
                                     : null,
                               ),
                               child: Row(
@@ -2933,7 +3137,7 @@ void _expandParentsOf(String path, Set<String> target) {
   }
 }
 
-class _TreeRow extends StatelessWidget {
+class _TreeRow extends ConsumerWidget {
   const _TreeRow({
     super.key,
     required this.row,
@@ -2952,7 +3156,8 @@ class _TreeRow extends StatelessWidget {
   final ValueChanged<String>? onAddToChat;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isItalian = ref.watch(appLanguageProvider) == AppLanguage.it;
     final node = row.node;
     final indent = (row.depth * 14.0).clamp(0.0, 160.0);
 
@@ -2987,7 +3192,9 @@ class _TreeRow extends StatelessWidget {
                             color: tokens.accent,
                           ),
                           const SizedBox(width: 8),
-                          const Text('Aggiungi alla chat'),
+                          Text(
+                            isItalian ? 'Aggiungi alla chat' : 'Add to chat',
+                          ),
                         ],
                       ),
                     ),
@@ -2997,7 +3204,7 @@ class _TreeRow extends StatelessWidget {
                         children: [
                           Icon(Icons.copy, size: 16, color: tokens.textMuted),
                           const SizedBox(width: 8),
-                          const Text('Copia percorso'),
+                          Text(isItalian ? 'Copia percorso' : 'Copy path'),
                         ],
                       ),
                     ),
@@ -3010,7 +3217,9 @@ class _TreeRow extends StatelessWidget {
                     if (context.mounted) {
                       FrameSnackBar.show(
                         context,
-                        message: 'Percorso copiato: ${node.path}',
+                        message: isItalian
+                            ? 'Percorso copiato: ${node.path}'
+                            : 'Path copied: ${node.path}',
                       );
                     }
                   }
@@ -3066,7 +3275,9 @@ class _TreeRow extends StatelessWidget {
                       ),
                       if (!node.isDirectory && onAddToChat != null)
                         IconButton(
-                          tooltip: 'Aggiungi alla chat',
+                          tooltip: isItalian
+                              ? 'Aggiungi alla chat'
+                              : 'Add to chat',
                           visualDensity: VisualDensity.compact,
                           padding: EdgeInsets.zero,
                           constraints: const BoxConstraints(

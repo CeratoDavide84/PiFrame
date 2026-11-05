@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pi_frame_theme/pi_frame_theme.dart';
 
 import '../../data/daemon/daemon_providers.dart';
+import '../../data/language/language_settings.dart';
 
 class SessionTreeDialog extends ConsumerStatefulWidget {
   final String sessionId;
@@ -22,6 +23,7 @@ class SessionTreeDialog extends ConsumerStatefulWidget {
 }
 
 class _SessionTreeDialogState extends ConsumerState<SessionTreeDialog> {
+  String _tr(String it, String en) => ref.read(appLanguageProvider) == AppLanguage.it ? it : en;
   bool _loading = true;
   String? _error;
   Map<String, dynamic>? _treeData;
@@ -42,7 +44,7 @@ class _SessionTreeDialogState extends ConsumerState<SessionTreeDialog> {
     if (client == null) {
       setState(() {
         _loading = false;
-        _error = 'Daemon non connesso';
+        _error = _tr('Daemon non connesso', 'Daemon disconnected');
       });
       return;
     }
@@ -64,6 +66,7 @@ class _SessionTreeDialogState extends ConsumerState<SessionTreeDialog> {
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(appLanguageProvider);
     final tokens = context.tokens;
 
     return Dialog(
@@ -92,7 +95,7 @@ class _SessionTreeDialogState extends ConsumerState<SessionTreeDialog> {
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      'Albero della Sessione',
+                      _tr('Albero della Sessione', 'Session tree'),
                       style: TextStyle(
                         color: tokens.textPrimary,
                         fontSize: 16,
@@ -109,7 +112,7 @@ class _SessionTreeDialogState extends ConsumerState<SessionTreeDialog> {
             ),
             const SizedBox(height: 12),
             Text(
-              'Sessione: ${widget.sessionId}',
+              _tr('Sessione: ${widget.sessionId}', 'Session: ${widget.sessionId}'),
               style: TextStyle(color: tokens.textMuted, fontSize: 12),
             ),
             const SizedBox(height: 12),
@@ -130,7 +133,7 @@ class _SessionTreeDialogState extends ConsumerState<SessionTreeDialog> {
                 TextButton.icon(
                   style: TextButton.styleFrom(foregroundColor: tokens.accent),
                   icon: const Icon(Icons.refresh, size: 14),
-                  label: const Text('Ricarica', style: TextStyle(fontSize: 12)),
+                  label: Text(_tr('Ricarica', 'Reload'), style: const TextStyle(fontSize: 12)),
                   onPressed: _loadTree,
                 ),
                 ElevatedButton(
@@ -139,7 +142,7 @@ class _SessionTreeDialogState extends ConsumerState<SessionTreeDialog> {
                     foregroundColor: tokens.surface,
                   ),
                   onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('Chiudi', style: TextStyle(fontSize: 12)),
+                  child: Text(_tr('Chiudi', 'Close'), style: const TextStyle(fontSize: 12)),
                 ),
               ],
             ),
@@ -164,7 +167,7 @@ class _SessionTreeDialogState extends ConsumerState<SessionTreeDialog> {
             Icon(Icons.error_outline, color: tokens.danger, size: 28),
             const SizedBox(height: 8),
             Text(
-              'Errore: $_error',
+              _tr('Errore: $_error', 'Error: $_error'),
               style: TextStyle(color: tokens.danger, fontSize: 13),
               textAlign: TextAlign.center,
             ),
@@ -186,12 +189,12 @@ class _SessionTreeDialogState extends ConsumerState<SessionTreeDialog> {
             Icon(Icons.device_hub, color: tokens.textMuted, size: 36),
             const SizedBox(height: 10),
             Text(
-              'Nessun ramo secondario per questa sessione.',
+              _tr('Nessun ramo secondario per questa sessione.', 'No secondary branches for this session.'),
               style: TextStyle(color: tokens.textSecondary, fontSize: 13),
             ),
             const SizedBox(height: 4),
             Text(
-              'Tutti i messaggi appartengono al ramo principale.',
+              _tr('Tutti i messaggi appartengono al ramo principale.', 'All messages belong to the main branch.'),
               style: TextStyle(color: tokens.textMuted, fontSize: 11),
             ),
           ],
@@ -265,7 +268,7 @@ class _SessionTreeDialogState extends ConsumerState<SessionTreeDialog> {
                               border: Border.all(color: tokens.border),
                             ),
                             child: Text(
-                              'ATTIVO',
+                              _tr('ATTIVO', 'ACTIVE'),
                               style: TextStyle(
                                 color: tokens.textPrimary,
                                 fontSize: 9,

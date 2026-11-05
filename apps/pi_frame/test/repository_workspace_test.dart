@@ -509,6 +509,30 @@ void main() {
     },
   );
 
+  testWidgets('repository controls change language without reopening', (tester) async {
+    final client = _FakeWorkspaceClient();
+    await tester.pumpWidget(ProviderScope(
+      overrides: [
+        pcpClientProvider.overrideWithValue(client),
+        sessionStateFamily('session-a').overrideWith(
+          (ref) => SessionStateNotifier('session-a', null)
+            ..state = const SessionState(sessionId: 'session-a', cwd: '/repo'),
+        ),
+      ],
+      child: MaterialApp(
+        theme: ThemeData.light().copyWith(extensions: const [FrameTokens.light]),
+        home: const Scaffold(body: RepositoryPane(sessionId: 'session-a')),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('Aggiorna file'), findsOneWidget);
+    final container = ProviderScope.containerOf(tester.element(find.byType(RepositoryPane)));
+    container.read(appLanguageProvider.notifier).setLanguage(AppLanguage.en);
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('Refresh files'), findsOneWidget);
+    expect(find.byTooltip('Aggiorna file'), findsNothing);
+  });
+
   testWidgets(
     'RepositoryPane renders .md files in formatted preview by default and toggles to editor',
     (tester) async {

@@ -4,6 +4,7 @@ import 'package:pi_frame_theme/pi_frame_theme.dart';
 
 import '../../app/app_version.dart';
 import '../../data/update/update_providers.dart';
+import '../../data/language/language_settings.dart';
 import '../../domain/update/update_models.dart';
 
 class UpdatesSection extends ConsumerWidget {
@@ -35,21 +36,22 @@ class UpdatesSection extends ConsumerWidget {
     WidgetRef ref,
     String? assetName,
   ) async {
+    final isItalian = ref.read(appLanguageProvider) == AppLanguage.it;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogCtx) => AlertDialog(
-        title: const Text('Confermare installazione?'),
+        title: Text(isItalian ? 'Confermare installazione?' : 'Confirm installation?'),
         content: Text(
-          'PiFrame verrà chiuso per avviare il processo di installazione dell\'aggiornamento${assetName != null ? " ($assetName)" : ""}.\n\nAssicurati che non ci siano comandi critici in esecuzione.',
+          isItalian ? 'PiFrame verrà chiuso per avviare il processo di installazione dell\'aggiornamento${assetName != null ? " ($assetName)" : ""}.\n\nAssicurati che non ci siano comandi critici in esecuzione.' : 'PiFrame will close to start installing the update${assetName != null ? " ($assetName)" : ""}.\n\nMake sure no critical commands are running.',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogCtx, false),
-            child: const Text('Annulla'),
+            child: Text(isItalian ? 'Annulla' : 'Cancel'),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(dialogCtx, true),
-            child: const Text('Installa e Riavvia'),
+            child: Text(isItalian ? 'Installa e Riavvia' : 'Install and restart'),
           ),
         ],
       ),
@@ -62,6 +64,8 @@ class UpdatesSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final isItalian = ref.watch(appLanguageProvider) == AppLanguage.it;
+    String t(String it, String en) => isItalian ? it : en;
     final tokens = context.tokens;
     final updateState = ref.watch(updateControllerProvider);
     final settings = ref.watch(updateSettingsProvider);
@@ -72,7 +76,7 @@ class UpdatesSection extends ConsumerWidget {
       children: [
         // Title & Description
         Text(
-          'Aggiornamenti PiFrame',
+          t('Aggiornamenti PiFrame', 'PiFrame updates'),
           style: TextStyle(
             color: tokens.textPrimary,
             fontSize: 16,
@@ -81,7 +85,7 @@ class UpdatesSection extends ConsumerWidget {
         ),
         const SizedBox(height: 6),
         Text(
-          'Verifica e scarica le nuove versioni ufficiali rilasciate sul repository GitHub di PiFrame.',
+          t('Verifica e scarica le nuove versioni ufficiali rilasciate sul repository GitHub di PiFrame.', 'Check and download official releases from the PiFrame GitHub repository.'),
           style: TextStyle(
             color: tokens.textMuted,
             fontSize: 12,
@@ -121,8 +125,8 @@ class UpdatesSection extends ConsumerWidget {
                     : const Icon(Icons.refresh, size: 16),
                 label: Text(
                   updateState.isChecking
-                      ? 'Controllo in corso...'
-                      : 'Verifica disponibilità',
+                      ? t('Controllo in corso...', 'Checking...')
+                      : t('Verifica disponibilità', 'Check for updates'),
                 ),
               );
 
@@ -135,7 +139,7 @@ class UpdatesSection extends ConsumerWidget {
                     runSpacing: 4,
                     children: [
                       Text(
-                        'Versione installata: v$currentVer',
+                        t('Versione installata: v$currentVer', 'Installed version: v$currentVer'),
                         style: TextStyle(
                           color: tokens.textPrimary,
                           fontWeight: FontWeight.w600,
@@ -157,7 +161,7 @@ class UpdatesSection extends ConsumerWidget {
                             ),
                           ),
                           child: Text(
-                            'Nuova versione!',
+                            t('Nuova versione!', 'New version!'),
                             style: TextStyle(
                               color: tokens.accent,
                               fontSize: 10,
@@ -170,8 +174,8 @@ class UpdatesSection extends ConsumerWidget {
                   const SizedBox(height: 4),
                   Text(
                     settings.lastChecked != null
-                        ? 'Ultima verifica: ${_formatDateTime(settings.lastChecked!)}'
-                        : 'Nessuna verifica recente effettuata',
+                        ? t('Ultima verifica: ${_formatDateTime(settings.lastChecked!)}', 'Last checked: ${_formatDateTime(settings.lastChecked!)}')
+                        : t('Nessuna verifica recente effettuata', 'No recent check'),
                     style: TextStyle(
                       color: tokens.textMuted,
                       fontSize: 11,
@@ -252,7 +256,7 @@ class UpdatesSection extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'PiFrame è aggiornato all\'ultima versione disponibile',
+                        t('PiFrame è aggiornato all\'ultima versione disponibile', 'PiFrame is up to date'),
                         style: TextStyle(
                           color: tokens.textPrimary,
                           fontWeight: FontWeight.w600,
@@ -261,7 +265,7 @@ class UpdatesSection extends ConsumerWidget {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        'Non sono presenti aggiornamenti più recenti di v$currentVer su GitHub.',
+                        t('Non sono presenti aggiornamenti più recenti di v$currentVer su GitHub.', 'There are no releases newer than v$currentVer on GitHub.'),
                         style: TextStyle(
                           color: tokens.textMuted,
                           fontSize: 11,
@@ -297,7 +301,7 @@ class UpdatesSection extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Errore durante il controllo degli aggiornamenti',
+                        t('Errore durante il controllo degli aggiornamenti', 'Failed to check for updates'),
                         style: TextStyle(
                           color: tokens.danger,
                           fontWeight: FontWeight.w600,
@@ -306,7 +310,7 @@ class UpdatesSection extends ConsumerWidget {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        updateState.errorMessage ?? 'Errore imprevisto',
+                        updateState.errorMessage ?? t('Errore imprevisto', 'Unexpected error'),
                         style: TextStyle(
                           color: tokens.textMuted,
                           fontSize: 11,
@@ -321,7 +325,7 @@ class UpdatesSection extends ConsumerWidget {
                         .read(updateControllerProvider.notifier)
                         .checkForUpdates(isManual: true);
                   },
-                  child: const Text('Riprova'),
+                  child: Text(t('Riprova', 'Retry')),
                 ),
               ],
             ),
@@ -346,7 +350,7 @@ class UpdatesSection extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Pianificazione automatica',
+                t('Pianificazione automatica', 'Automatic schedule'),
                 style: TextStyle(
                   color: tokens.textPrimary,
                   fontSize: 14,
@@ -355,7 +359,7 @@ class UpdatesSection extends ConsumerWidget {
               ),
               const SizedBox(height: 6),
               Text(
-                'Configura il controllo periodico degli aggiornamenti in background.',
+                t('Configura il controllo periodico degli aggiornamenti in background.', 'Configure periodic background update checks.'),
                 style: TextStyle(
                   color: tokens.textMuted,
                   fontSize: 12,
@@ -367,7 +371,7 @@ class UpdatesSection extends ConsumerWidget {
                 child: SwitchListTile(
                   contentPadding: EdgeInsets.zero,
                   title: Text(
-                    'Verifica automaticamente la presenza di aggiornamenti',
+                    t('Verifica automaticamente la presenza di aggiornamenti', 'Automatically check for updates'),
                     style: TextStyle(
                       color: tokens.textPrimary,
                       fontSize: 13,
@@ -375,7 +379,7 @@ class UpdatesSection extends ConsumerWidget {
                     ),
                   ),
                   subtitle: Text(
-                    'Disattivato per impostazione predefinita per tutelare la privacy e prevenire chiamate di rete non richieste.',
+                    t('Disattivato per impostazione predefinita per tutelare la privacy e prevenire chiamate di rete non richieste.', 'Disabled by default to protect privacy and prevent unsolicited network requests.'),
                     style: TextStyle(
                       color: tokens.textMuted,
                       fontSize: 11,
@@ -398,7 +402,7 @@ class UpdatesSection extends ConsumerWidget {
                   runSpacing: 8,
                   children: [
                     Text(
-                      'Frequenza di controllo:',
+                      t('Frequenza di controllo:', 'Check frequency:'),
                       style: TextStyle(
                         color: tokens.textSecondary,
                         fontSize: 13,
@@ -465,7 +469,7 @@ class UpdatesSection extends ConsumerWidget {
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  'Privacy e Sicurezza (D16): Il controllo aggiornamenti interroga esclusivamente le release pubbliche di GitHub tramite connessione HTTPS protetta. Nessun dato utente, token, sessione o informazione diagnostica viene trasmesso. Nessuna installazione viene mai eseguita senza la tua esplicita autorizzazione.',
+                  t('Privacy e Sicurezza (D16): Il controllo aggiornamenti interroga esclusivamente le release pubbliche di GitHub tramite connessione HTTPS protetta. Nessun dato utente, token, sessione o informazione diagnostica viene trasmesso. Nessuna installazione viene mai eseguita senza la tua esplicita autorizzazione.', 'Privacy and security (D16): Update checks query only public GitHub releases over HTTPS. No user data, token, session or diagnostic information is sent. Installation never runs without your explicit authorization.'),
                   style: TextStyle(
                     color: tokens.textMuted,
                     fontSize: 11,
@@ -486,6 +490,8 @@ class UpdatesSection extends ConsumerWidget {
     FrameTokens tokens,
     UpdateState state,
   ) {
+    final isItalian = ref.watch(appLanguageProvider) == AppLanguage.it;
+    String t(String it, String en) => isItalian ? it : en;
     final release = state.latestRelease!;
     final asset = state.selectedAsset ?? release.findPlatformAsset();
     final isDownloading = state.status == UpdateStatus.downloading;
@@ -521,7 +527,7 @@ class UpdatesSection extends ConsumerWidget {
                     const SizedBox(height: 4),
                     Text(
                       release.publishedAt != null
-                          ? 'Pubblicato il ${_formatDateTime(release.publishedAt!)}'
+                          ? t('Pubblicato il ${_formatDateTime(release.publishedAt!)}', 'Published ${_formatDateTime(release.publishedAt!)}')
                           : release.tagName,
                       style: TextStyle(
                         color: tokens.textMuted,
@@ -538,7 +544,7 @@ class UpdatesSection extends ConsumerWidget {
                       .openReleasePage();
                 },
                 icon: const Icon(Icons.open_in_new, size: 14),
-                label: const Text('Note su GitHub'),
+                label: Text(t('Note su GitHub', 'Notes on GitHub')),
               ),
             ],
           ),
@@ -571,7 +577,7 @@ class UpdatesSection extends ConsumerWidget {
 
           if (asset != null) ...[
             Text(
-              'File installer: ${asset.name} (${_formatBytes(asset.size)})',
+              t('File installer: ${asset.name} (${_formatBytes(asset.size)})', 'Installer file: ${asset.name} (${_formatBytes(asset.size)})'),
               style: TextStyle(
                 color: tokens.textMuted,
                 fontSize: 11,
@@ -608,7 +614,7 @@ class UpdatesSection extends ConsumerWidget {
                             .cancelDownload();
                       },
                       child: Text(
-                        'Annulla',
+                        t('Annulla', 'Cancel'),
                         style: TextStyle(color: tokens.danger, fontSize: 12),
                       ),
                     ),
@@ -622,11 +628,11 @@ class UpdatesSection extends ConsumerWidget {
                 FilledButton.icon(
                   onPressed: () => _confirmAndInstall(context, ref, asset?.name),
                   icon: const Icon(Icons.install_desktop, size: 16),
-                  label: const Text('Installa e Riavvia'),
+                  label: Text(t('Installa e Riavvia', 'Install and restart')),
                 ),
                 const SizedBox(width: 12),
                 Text(
-                  'Pronto per l\'installazione',
+                  t('Pronto per l\'installazione', 'Ready to install'),
                   style: TextStyle(
                     color: tokens.success,
                     fontSize: 12,
@@ -648,7 +654,7 @@ class UpdatesSection extends ConsumerWidget {
                 ),
                 const SizedBox(width: 10),
                 Text(
-                  'Avvio programma di installazione in corso...',
+                  t('Avvio programma di installazione in corso...', 'Starting installer...'),
                   style: TextStyle(
                     color: tokens.textPrimary,
                     fontSize: 13,
@@ -667,7 +673,7 @@ class UpdatesSection extends ConsumerWidget {
                           .downloadUpdate(assetOverride: asset);
                     },
                     icon: const Icon(Icons.download, size: 16),
-                    label: const Text('Scarica aggiornamento'),
+                    label: Text(t('Scarica aggiornamento', 'Download update')),
                   )
                 else
                   OutlinedButton.icon(
@@ -677,7 +683,7 @@ class UpdatesSection extends ConsumerWidget {
                           .openReleasePage();
                     },
                     icon: const Icon(Icons.open_in_browser, size: 16),
-                    label: const Text('Scarica manualmente da GitHub'),
+                    label: Text(t('Scarica manualmente da GitHub', 'Download manually from GitHub')),
                   ),
               ],
             ),

@@ -7,6 +7,7 @@ import 'package:pi_frame_protocol/pi_frame_protocol.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:pi_frame/data/daemon/daemon_providers.dart';
 import 'package:pi_frame/data/daemon/pcp_client.dart';
+import 'package:pi_frame/data/language/language_settings.dart';
 import 'package:pi_frame/features/settings/remote_section.dart';
 
 class _MockRemoteClient extends PcpClient {
@@ -34,6 +35,22 @@ class _MockRemoteClient extends PcpClient {
 }
 
 void main() {
+  testWidgets('remote settings update when the language changes', (tester) async {
+    final client = _MockRemoteClient();
+    await tester.pumpWidget(ProviderScope(
+      overrides: [pcpClientProvider.overrideWithValue(client)],
+      child: const MaterialApp(home: Scaffold(body: RemoteSection())),
+    ));
+    await tester.pump();
+    await tester.pump();
+    expect(find.text('Connessione Remota Sicura'), findsOneWidget);
+    final container = ProviderScope.containerOf(tester.element(find.byType(RemoteSection)));
+    container.read(appLanguageProvider.notifier).setLanguage(AppLanguage.en);
+    await tester.pump();
+    expect(find.text('Secure remote connection'), findsOneWidget);
+    expect(find.text('DISABLED'), findsOneWidget);
+  });
+
   testWidgets('RemoteSection renders disabled state and options', (tester) async {
     final client = _MockRemoteClient();
     await tester.pumpWidget(

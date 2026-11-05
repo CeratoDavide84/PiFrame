@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pi_frame/features/settings/mcp_servers_dialog.dart';
 import 'package:pi_frame_theme/pi_frame_theme.dart';
@@ -35,11 +36,13 @@ void main() {
       ];
 
       await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: McpServersDialog(
-              tokens: tokens,
-              initialServers: testServers,
+        ProviderScope(
+          child: MaterialApp(
+            home: Scaffold(
+              body: McpServersDialog(
+                tokens: tokens,
+                initialServers: testServers,
+              ),
             ),
           ),
         ),
@@ -48,7 +51,7 @@ void main() {
       await tester.pump();
 
       // Check title and servers
-      expect(find.text('Server MCP Disponibili'), findsOneWidget);
+      expect(find.text('Server MCP disponibili'), findsOneWidget);
       expect(find.text('dart'), findsOneWidget);
       expect(find.text('git'), findsOneWidget);
       expect(find.text('Connesso'), findsOneWidget);

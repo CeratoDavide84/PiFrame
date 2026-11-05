@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import 'package:pi_frame_theme/pi_frame_theme.dart';
+
+import '../../data/language/language_settings.dart';
 
 enum CopilotFileActionType { mention, attach }
 
@@ -11,7 +14,7 @@ class CopilotFileResult {
   const CopilotFileResult({required this.path, required this.action});
 }
 
-class CopilotFilePicker extends StatefulWidget {
+class CopilotFilePicker extends ConsumerStatefulWidget {
   final List<Map<String, dynamic>> files;
 
   const CopilotFilePicker({super.key, required this.files});
@@ -29,16 +32,19 @@ class CopilotFilePicker extends StatefulWidget {
   }
 
   @override
-  State<CopilotFilePicker> createState() => _CopilotFilePickerState();
+  ConsumerState<CopilotFilePicker> createState() => _CopilotFilePickerState();
 }
 
-class _CopilotFilePickerState extends State<CopilotFilePicker> {
+class _CopilotFilePickerState extends ConsumerState<CopilotFilePicker> {
   final _searchController = TextEditingController();
   final _searchFocusNode = FocusNode();
   final _scrollController = ScrollController();
   int _selectedIndex = 0;
   List<Map<String, dynamic>> _filteredFiles = const [];
   int _renderedLimit = 50;
+
+  String _tr(String it, String en) =>
+      ref.read(appLanguageProvider) == AppLanguage.it ? it : en;
 
   @override
   void initState() {
@@ -60,7 +66,8 @@ class _CopilotFilePickerState extends State<CopilotFilePicker> {
 
   void _onScroll() {
     if (!_scrollController.hasClients) return;
-    if (_scrollController.position.extentAfter < 200 && _renderedLimit < _filteredFiles.length) {
+    if (_scrollController.position.extentAfter < 200 &&
+        _renderedLimit < _filteredFiles.length) {
       setState(() {
         _renderedLimit = (_renderedLimit + 50).clamp(0, _filteredFiles.length);
       });
@@ -86,10 +93,15 @@ class _CopilotFilePickerState extends State<CopilotFilePicker> {
   IconData _getFileIcon(String path) {
     final lower = path.toLowerCase();
     if (lower.endsWith('.dart')) return Icons.code;
-    if (lower.endsWith('.js') || lower.endsWith('.ts') || lower.endsWith('.tsx') || lower.endsWith('.jsx')) {
+    if (lower.endsWith('.js') ||
+        lower.endsWith('.ts') ||
+        lower.endsWith('.tsx') ||
+        lower.endsWith('.jsx')) {
       return Icons.javascript;
     }
-    if (lower.endsWith('.json') || lower.endsWith('.yaml') || lower.endsWith('.yml')) {
+    if (lower.endsWith('.json') ||
+        lower.endsWith('.yaml') ||
+        lower.endsWith('.yml')) {
       return Icons.data_object;
     }
     if (lower.endsWith('.md') || lower.endsWith('.txt')) {
@@ -111,6 +123,7 @@ class _CopilotFilePickerState extends State<CopilotFilePicker> {
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(appLanguageProvider);
     final tokens = context.tokens;
 
     return Dialog(
@@ -133,13 +146,17 @@ class _CopilotFilePickerState extends State<CopilotFilePicker> {
             } else if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
               if (_filteredFiles.isNotEmpty) {
                 setState(() {
-                  _selectedIndex = (_selectedIndex - 1 + _filteredFiles.length) % _filteredFiles.length;
+                  _selectedIndex =
+                      (_selectedIndex - 1 + _filteredFiles.length) %
+                      _filteredFiles.length;
                 });
                 return KeyEventResult.handled;
               }
             } else if (event.logicalKey == LogicalKeyboardKey.enter) {
-              if (_filteredFiles.isNotEmpty && _selectedIndex < _filteredFiles.length) {
-                final path = _filteredFiles[_selectedIndex]['path']?.toString() ?? '';
+              if (_filteredFiles.isNotEmpty &&
+                  _selectedIndex < _filteredFiles.length) {
+                final path =
+                    _filteredFiles[_selectedIndex]['path']?.toString() ?? '';
                 if (path.isNotEmpty) {
                   _selectFile(path, CopilotFileActionType.attach);
                   return KeyEventResult.handled;
@@ -173,7 +190,10 @@ class _CopilotFilePickerState extends State<CopilotFilePicker> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Aggiungi contesto al chat',
+                          _tr(
+                            'Aggiungi contesto alla chat',
+                            'Add context to chat',
+                          ),
                           style: TextStyle(
                             color: tokens.textPrimary,
                             fontSize: 14,
@@ -181,7 +201,10 @@ class _CopilotFilePickerState extends State<CopilotFilePicker> {
                           ),
                         ),
                         Text(
-                          'Cerca file per includere il contenuto o collegarlo con @',
+                          _tr(
+                            'Cerca un file per includerne il contenuto o citarlo con @',
+                            'Find a file to include its contents or mention it with @',
+                          ),
                           style: TextStyle(
                             color: tokens.textMuted,
                             fontSize: 11,
@@ -192,7 +215,7 @@ class _CopilotFilePickerState extends State<CopilotFilePicker> {
                   ),
                   IconButton(
                     icon: Icon(Icons.close, size: 18, color: tokens.textMuted),
-                    tooltip: 'Chiudi (Esc)',
+                    tooltip: _tr('Chiudi (Esc)', 'Close (Esc)'),
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                 ],
@@ -206,18 +229,32 @@ class _CopilotFilePickerState extends State<CopilotFilePicker> {
                 autofocus: true,
                 style: TextStyle(color: tokens.textPrimary, fontSize: 13),
                 decoration: InputDecoration(
-                  hintText: 'Cerca per nome file o percorso...',
+                  hintText: _tr(
+                    'Cerca per nome file o percorso...',
+                    'Search by file name or path...',
+                  ),
                   hintStyle: TextStyle(color: tokens.textMuted, fontSize: 13),
-                  prefixIcon: Icon(Icons.search, size: 18, color: tokens.textMuted),
+                  prefixIcon: Icon(
+                    Icons.search,
+                    size: 18,
+                    color: tokens.textMuted,
+                  ),
                   suffixIcon: _searchController.text.isNotEmpty
                       ? IconButton(
-                          icon: Icon(Icons.clear, size: 16, color: tokens.textMuted),
+                          icon: Icon(
+                            Icons.clear,
+                            size: 16,
+                            color: tokens.textMuted,
+                          ),
                           onPressed: () => _searchController.clear(),
                         )
                       : null,
                   filled: true,
                   fillColor: tokens.surfaceElevated,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(tokens.radiusSm),
                     borderSide: BorderSide(color: tokens.border),
@@ -235,12 +272,18 @@ class _CopilotFilePickerState extends State<CopilotFilePicker> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    '${_filteredFiles.length} file trovati',
+                    _tr(
+                      '${_filteredFiles.length} file trovati',
+                      '${_filteredFiles.length} files found',
+                    ),
                     style: TextStyle(color: tokens.textMuted, fontSize: 11),
                   ),
                   Flexible(
                     child: Text(
-                      '↑↓ seleziona · Invio conferma',
+                      _tr(
+                        '↑↓ seleziona · Invio conferma',
+                        '↑↓ select · Enter confirm',
+                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       textAlign: TextAlign.end,
@@ -260,8 +303,14 @@ class _CopilotFilePickerState extends State<CopilotFilePicker> {
                 child: _filteredFiles.isEmpty
                     ? Center(
                         child: Text(
-                          'Nessun file corrisponde alla ricerca',
-                          style: TextStyle(color: tokens.textMuted, fontSize: 12),
+                          _tr(
+                            'Nessun file corrisponde alla ricerca',
+                            'No files match your search',
+                          ),
+                          style: TextStyle(
+                            color: tokens.textMuted,
+                            fontSize: 12,
+                          ),
                         ),
                       )
                     : Container(
@@ -278,10 +327,14 @@ class _CopilotFilePickerState extends State<CopilotFilePicker> {
                               : _filteredFiles.length,
                           itemExtent: 44.0,
                           itemBuilder: (context, index) {
-                            if (index == _renderedLimit && _renderedLimit < _filteredFiles.length) {
+                            if (index == _renderedLimit &&
+                                _renderedLimit < _filteredFiles.length) {
                               return Center(
                                 child: Text(
-                                  'Caricamento altri file ($_renderedLimit/${_filteredFiles.length})...',
+                                  _tr(
+                                    'Caricamento altri file ($_renderedLimit/${_filteredFiles.length})...',
+                                    'Loading more files ($_renderedLimit/${_filteredFiles.length})...',
+                                  ),
                                   style: TextStyle(
                                     color: tokens.textMuted,
                                     fontSize: 11,
@@ -295,7 +348,10 @@ class _CopilotFilePickerState extends State<CopilotFilePicker> {
                             final isSelected = index == _selectedIndex;
 
                             return InkWell(
-                              onTap: () => _selectFile(path, CopilotFileActionType.attach),
+                              onTap: () => _selectFile(
+                                path,
+                                CopilotFileActionType.attach,
+                              ),
                               child: Container(
                                 color: isSelected
                                     ? tokens.accent.withValues(alpha: 0.12)
@@ -309,7 +365,9 @@ class _CopilotFilePickerState extends State<CopilotFilePicker> {
                                     Icon(
                                       _getFileIcon(path),
                                       size: 16,
-                                      color: isSelected ? tokens.accent : tokens.textSecondary,
+                                      color: isSelected
+                                          ? tokens.accent
+                                          : tokens.textSecondary,
                                     ),
                                     const SizedBox(width: 10),
                                     Expanded(
@@ -318,7 +376,9 @@ class _CopilotFilePickerState extends State<CopilotFilePicker> {
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
                                         style: TextStyle(
-                                          color: isSelected ? tokens.accent : tokens.textPrimary,
+                                          color: isSelected
+                                              ? tokens.accent
+                                              : tokens.textPrimary,
                                           fontSize: 12.5,
                                           fontWeight: FontWeight.w600,
                                           fontFamily: tokens.monoFontFamily,
@@ -339,15 +399,26 @@ class _CopilotFilePickerState extends State<CopilotFilePicker> {
                                     OutlinedButton(
                                       style: OutlinedButton.styleFrom(
                                         visualDensity: VisualDensity.compact,
-                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                          vertical: 4,
+                                        ),
                                         side: BorderSide(color: tokens.border),
                                         foregroundColor: tokens.textSecondary,
                                         shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(tokens.radiusSm),
+                                          borderRadius: BorderRadius.circular(
+                                            tokens.radiusSm,
+                                          ),
                                         ),
                                       ),
-                                      onPressed: () => _selectFile(path, CopilotFileActionType.mention),
-                                      child: const Text('Collega @', style: TextStyle(fontSize: 10.5)),
+                                      onPressed: () => _selectFile(
+                                        path,
+                                        CopilotFileActionType.mention,
+                                      ),
+                                      child: Text(
+                                        _tr('Collega @', 'Mention @'),
+                                        style: const TextStyle(fontSize: 10.5),
+                                      ),
                                     ),
                                   ],
                                 ),

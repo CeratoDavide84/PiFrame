@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pi_frame_theme/pi_frame_theme.dart';
 
+import '../../data/language/language_settings.dart';
 import '../../data/daemon/daemon_providers.dart';
 import '../../domain/session/context_pricing_helper.dart';
 import '../../domain/session/agent_status.dart';
@@ -37,6 +38,9 @@ class _ContextWindowSelectorState extends ConsumerState<ContextWindowSelector> {
   bool _pending = false;
   double? _draft;
   int _generation = 0;
+
+  String _tr(String it, String en) =>
+      ref.read(appLanguageProvider) == AppLanguage.it ? it : en;
 
   @override
   void didUpdateWidget(covariant ContextWindowSelector oldWidget) {
@@ -81,12 +85,14 @@ class _ContextWindowSelectorState extends ConsumerState<ContextWindowSelector> {
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(appLanguageProvider);
     final tokens = context.tokens;
     ref.listen<String?>(
       sessionStateFamily(widget.sessionId).select((s) => s.currentModel),
       (previous, next) {
         if (previous != next) {
-          ref.read(customContextModeProvider(widget.sessionId).notifier).state = null;
+          ref.read(customContextModeProvider(widget.sessionId).notifier).state =
+              null;
         }
       },
     );
@@ -150,8 +156,8 @@ class _ContextWindowSelectorState extends ConsumerState<ContextWindowSelector> {
               value: selected,
               hint: Text(
                 maximum == null
-                    ? 'Massimo non disponibile'
-                    : 'Seleziona limite',
+                    ? _tr('Massimo non disponibile', 'Maximum unavailable')
+                    : _tr('Seleziona limite', 'Select limit'),
                 style: TextStyle(color: tokens.textMuted, fontSize: 12),
               ),
               borderRadius: BorderRadius.circular(tokens.radiusMd),
@@ -165,7 +171,7 @@ class _ContextWindowSelectorState extends ConsumerState<ContextWindowSelector> {
                 DropdownMenuItem<Object>(
                   value: _custom,
                   enabled: sliderEnabled,
-                  child: const Text('Custom'),
+                  child: Text(_tr('Personalizzato', 'Custom')),
                 ),
                 ...presets.map(
                   (size) => DropdownMenuItem<Object>(

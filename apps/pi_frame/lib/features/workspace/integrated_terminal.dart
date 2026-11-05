@@ -10,6 +10,7 @@ import 'package:pi_frame_theme/pi_frame_theme.dart';
 import 'package:xterm/xterm.dart';
 
 import '../../data/terminal/terminal_settings.dart';
+import '../../data/language/language_settings.dart';
 
 class TerminalTabSession {
   final String id;
@@ -170,6 +171,8 @@ class IntegratedTerminalPanel extends ConsumerStatefulWidget {
 
 class _IntegratedTerminalPanelState
     extends ConsumerState<IntegratedTerminalPanel> {
+  String _tr(String it, String en) =>
+      ref.read(appLanguageProvider) == AppLanguage.it ? it : en;
   final List<TerminalTabSession> _tabs = [];
   int _activeTabIndex = 0;
   int _counter = 0;
@@ -313,7 +316,7 @@ class _IntegratedTerminalPanelState
 
     final displayDir = isWsl && widget.cwd.isNotEmpty ? widget.cwd : effectiveCwd;
     session.terminal.write(
-      'Avvio sessione terminale in: $displayDir\r\n\r\n',
+      _tr('Avvio sessione terminale in: $displayDir\r\n\r\n', 'Starting terminal session in: $displayDir\r\n\r\n'),
     );
 
     try {
@@ -354,7 +357,7 @@ class _IntegratedTerminalPanelState
     } catch (e) {
       if (!mounted) return;
       session.terminal.write(
-        'Impossibile avviare il processo della shell ($executable): $e\r\n',
+        _tr('Impossibile avviare il processo della shell ($executable): $e\r\n', 'Unable to start shell process ($executable): $e\r\n'),
       );
       setState(() {
         session.isRunning = false;
@@ -403,6 +406,7 @@ class _IntegratedTerminalPanelState
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(appLanguageProvider);
     final tokens = widget.tokens;
 
     if (_tabs.isEmpty) {
@@ -413,7 +417,7 @@ class _IntegratedTerminalPanelState
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                'Nessun terminale aperto',
+                _tr('Nessun terminale aperto', 'No terminal open'),
                 style: TextStyle(color: tokens.textMuted, fontSize: 13),
               ),
               const SizedBox(height: 8),
@@ -424,7 +428,7 @@ class _IntegratedTerminalPanelState
                 ),
                 onPressed: () => _createNewTab(),
                 icon: const Icon(Icons.add, size: 16),
-                label: const Text('Apri nuovo terminale'),
+                label: Text(_tr('Apri nuovo terminale', 'Open new terminal')),
               ),
             ],
           ),
@@ -529,7 +533,7 @@ class _IntegratedTerminalPanelState
 
                 // "+" Add Tab Button
                 PopupMenuButton<String>(
-                  tooltip: 'Nuovo terminale',
+                  tooltip: _tr('Nuovo terminale', 'New terminal'),
                   icon: Icon(Icons.add, size: 16, color: tokens.displayText),
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
@@ -550,7 +554,7 @@ class _IntegratedTerminalPanelState
                             children: [
                               const Icon(Icons.terminal, size: 15),
                               const SizedBox(width: 8),
-                              Text('Nuovo terminale WSL (${wslInfo['distro']})'),
+                              Text(_tr('Nuovo terminale WSL (${wslInfo['distro']})', 'New WSL terminal (${wslInfo['distro']})')),
                             ],
                           ),
                         ),
@@ -562,8 +566,8 @@ class _IntegratedTerminalPanelState
                             const SizedBox(width: 8),
                             Text(
                               Platform.isWindows
-                                  ? 'Nuovo terminale (PowerShell)'
-                                  : 'Nuovo terminale',
+                                  ? _tr('Nuovo terminale (PowerShell)', 'New terminal (PowerShell)')
+                                  : _tr('Nuovo terminale', 'New terminal'),
                             ),
                           ],
                         ),
@@ -590,7 +594,7 @@ class _IntegratedTerminalPanelState
                   visualDensity: VisualDensity.compact,
                   padding: const EdgeInsets.all(4),
                   constraints: const BoxConstraints(),
-                  tooltip: 'Interrompi processo (Ctrl+C)',
+                  tooltip: _tr('Interrompi processo (Ctrl+C)', 'Interrupt process (Ctrl+C)'),
                   icon: Icon(Icons.stop_circle_outlined, size: 15, color: tokens.danger),
                   onPressed: _sendInterrupt,
                 ),
@@ -602,7 +606,7 @@ class _IntegratedTerminalPanelState
                   visualDensity: VisualDensity.compact,
                   padding: const EdgeInsets.all(4),
                   constraints: const BoxConstraints(),
-                  tooltip: 'Pulisci schermo (Clear)',
+                  tooltip: _tr('Pulisci schermo (Clear)', 'Clear screen'),
                   icon: const Icon(Icons.block, size: 14),
                   onPressed: _clearScreen,
                 ),
@@ -614,7 +618,7 @@ class _IntegratedTerminalPanelState
                   visualDensity: VisualDensity.compact,
                   padding: const EdgeInsets.all(4),
                   constraints: const BoxConstraints(),
-                  tooltip: 'Apri nel terminale nativo (OS)',
+                  tooltip: _tr('Apri nel terminale nativo (OS)', 'Open in system terminal'),
                   icon: const Icon(Icons.open_in_new, size: 14),
                   onPressed: _openInNativeTerminal,
                 ),
@@ -626,7 +630,7 @@ class _IntegratedTerminalPanelState
                   visualDensity: VisualDensity.compact,
                   padding: const EdgeInsets.all(4),
                   constraints: const BoxConstraints(),
-                  tooltip: 'Collassa in basso',
+                  tooltip: _tr('Collassa in basso', 'Collapse to bottom'),
                   icon: const Icon(Icons.keyboard_arrow_down, size: 18),
                   onPressed: widget.onCollapseDownward,
                 ),
@@ -638,7 +642,7 @@ class _IntegratedTerminalPanelState
                   visualDensity: VisualDensity.compact,
                   padding: const EdgeInsets.all(4),
                   constraints: const BoxConstraints(),
-                  tooltip: 'Chiudi terminale',
+                  tooltip: _tr('Chiudi terminale', 'Close terminal'),
                   icon: const Icon(Icons.close, size: 16),
                   onPressed: widget.onClose,
                 ),

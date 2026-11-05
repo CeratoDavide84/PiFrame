@@ -63,10 +63,18 @@ class TaskNotificationData {
     int? durationMs;
 
     if (usageXml.isNotEmpty) {
-      final tt = RegExp(r'<total_tokens>(\d+)</total_tokens>').firstMatch(usageXml)?.group(1);
-      final tu = RegExp(r'<tool_uses>(\d+)</tool_uses>').firstMatch(usageXml)?.group(1);
-      final cp = RegExp(r'<context_percent>(\d+)</context_percent>').firstMatch(usageXml)?.group(1);
-      final dm = RegExp(r'<duration_ms>(\d+)</duration_ms>').firstMatch(usageXml)?.group(1);
+      final tt = RegExp(r'<total_tokens>(\d+)</total_tokens>')
+          .firstMatch(usageXml)
+          ?.group(1);
+      final tu = RegExp(r'<tool_uses>(\d+)</tool_uses>')
+          .firstMatch(usageXml)
+          ?.group(1);
+      final cp = RegExp(r'<context_percent>(\d+)</context_percent>')
+          .firstMatch(usageXml)
+          ?.group(1);
+      final dm = RegExp(r'<duration_ms>(\d+)</duration_ms>')
+          .firstMatch(usageXml)
+          ?.group(1);
 
       totalTokens = tt != null ? int.tryParse(tt) : null;
       toolUses = tu != null ? int.tryParse(tu) : null;
@@ -107,11 +115,7 @@ class TaskNotificationCard extends StatefulWidget {
   final TaskNotificationData data;
   final String? cwd;
 
-  const TaskNotificationCard({
-    super.key,
-    required this.data,
-    this.cwd,
-  });
+  const TaskNotificationCard({super.key, required this.data, this.cwd});
 
   @override
   State<TaskNotificationCard> createState() => _TaskNotificationCardState();
@@ -138,19 +142,22 @@ class _TaskNotificationCardState extends State<TaskNotificationCard> {
 
   @override
   Widget build(BuildContext context) {
+    final isItalian = Localizations.localeOf(context).languageCode == 'it';
     final tokens = context.tokens;
     final data = widget.data;
 
-    final isWrappedUp = data.status.toLowerCase().contains('turn limit') ||
+    final isWrappedUp =
+        data.status.toLowerCase().contains('turn limit') ||
         data.status.toLowerCase().contains('wrapped');
-    final isError = data.status.toLowerCase().contains('error') ||
+    final isError =
+        data.status.toLowerCase().contains('error') ||
         data.status.toLowerCase().contains('failed');
 
     final Color statusColor = isError
         ? tokens.agentError
         : isWrappedUp
-            ? tokens.signalWarning
-            : tokens.success;
+        ? tokens.signalWarning
+        : tokens.success;
 
     final durationText = _formatDuration(data.durationMs);
     final tokensText = _formatNumber(data.totalTokens);
@@ -186,18 +193,12 @@ class _TaskNotificationCardState extends State<TaskNotificationCard> {
                 top: Radius.circular(tokens.radiusMd),
               ),
               border: Border(
-                bottom: BorderSide(
-                  color: tokens.border.withValues(alpha: 0.5),
-                ),
+                bottom: BorderSide(color: tokens.border.withValues(alpha: 0.5)),
               ),
             ),
             child: Row(
               children: [
-                Icon(
-                  Icons.hub_outlined,
-                  size: 15,
-                  color: statusColor,
-                ),
+                Icon(Icons.hub_outlined, size: 15, color: statusColor),
                 const SizedBox(width: 8),
                 Text(
                   'Notifica Subagente',
@@ -210,7 +211,10 @@ class _TaskNotificationCardState extends State<TaskNotificationCard> {
                 const SizedBox(width: 8),
                 Flexible(
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 1.5,
+                    ),
                     decoration: BoxDecoration(
                       color: statusColor.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(tokens.radiusSm),
@@ -280,7 +284,11 @@ class _TaskNotificationCardState extends State<TaskNotificationCard> {
                       Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.timer_outlined, size: 12, color: tokens.textMuted),
+                          Icon(
+                            Icons.timer_outlined,
+                            size: 12,
+                            color: tokens.textMuted,
+                          ),
                           const SizedBox(width: 3),
                           Text(
                             durationText,
@@ -296,7 +304,11 @@ class _TaskNotificationCardState extends State<TaskNotificationCard> {
                       Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.data_usage, size: 12, color: tokens.textMuted),
+                          Icon(
+                            Icons.data_usage,
+                            size: 12,
+                            color: tokens.textMuted,
+                          ),
                           const SizedBox(width: 3),
                           Text(
                             '$tokensText tok',
@@ -312,7 +324,11 @@ class _TaskNotificationCardState extends State<TaskNotificationCard> {
                       Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.construction_outlined, size: 12, color: tokens.textMuted),
+                          Icon(
+                            Icons.construction_outlined,
+                            size: 12,
+                            color: tokens.textMuted,
+                          ),
                           const SizedBox(width: 3),
                           Text(
                             '${data.toolUses} tool uses',
@@ -328,7 +344,11 @@ class _TaskNotificationCardState extends State<TaskNotificationCard> {
                       Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.pie_chart_outline, size: 12, color: tokens.textMuted),
+                          Icon(
+                            Icons.pie_chart_outline,
+                            size: 12,
+                            color: tokens.textMuted,
+                          ),
                           const SizedBox(width: 3),
                           Text(
                             '${data.contextPercent}% contesto',
@@ -357,10 +377,15 @@ class _TaskNotificationCardState extends State<TaskNotificationCard> {
                       children: [
                         InkWell(
                           key: const ValueKey('task-notif-expand-result-btn'),
-                          onTap: () => setState(() => _isResultExpanded = !_isResultExpanded),
+                          onTap: () => setState(
+                            () => _isResultExpanded = !_isResultExpanded,
+                          ),
                           borderRadius: BorderRadius.circular(tokens.radiusSm),
                           child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 6,
+                            ),
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
@@ -373,7 +398,9 @@ class _TaskNotificationCardState extends State<TaskNotificationCard> {
                                     ),
                                     const SizedBox(width: 6),
                                     Text(
-                                      'Risultato operazione',
+                                      isItalian
+                                          ? 'Risultato operazione'
+                                          : 'Task result',
                                       style: TextStyle(
                                         color: tokens.textSecondary,
                                         fontSize: 11,
@@ -465,7 +492,9 @@ class _TaskNotificationCardState extends State<TaskNotificationCard> {
                               ),
                               const SizedBox(width: 4),
                               Text(
-                                'Apri trascrizione completa',
+                                isItalian
+                                    ? 'Apri trascrizione completa'
+                                    : 'Open full transcript',
                                 style: TextStyle(
                                   color: tokens.accent,
                                   fontSize: 11,

@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pi_frame_theme/pi_frame_theme.dart';
 
 import '../../data/daemon/daemon_providers.dart';
+import '../../data/language/language_settings.dart';
 import '../../ui/frame_snack_bar.dart';
 import '../../domain/session/agent_status.dart';
 import '../../domain/session/attachment_model.dart';
@@ -172,6 +173,7 @@ class TranscriptView extends ConsumerStatefulWidget {
 }
 
 class _TranscriptViewState extends ConsumerState<TranscriptView> {
+  String _tr(String it, String en) => ref.read(appLanguageProvider) == AppLanguage.it ? it : en;
   late final BottomAnchoredScrollController _scrollController =
       BottomAnchoredScrollController(
     shouldAnchorToBottom: () => !_userScrolledUpNotifier.value,
@@ -341,7 +343,7 @@ class _TranscriptViewState extends ConsumerState<TranscriptView> {
       if (mounted) {
         FrameSnackBar.show(
           context,
-          message: 'Errore durante la rinomina: $e',
+          message: _tr('Errore durante la rinomina: $e', 'Rename failed: $e'),
           backgroundColor: Theme.of(context).colorScheme.error,
         );
       }
@@ -665,7 +667,7 @@ class _TranscriptViewState extends ConsumerState<TranscriptView> {
                               ),
                               const SizedBox(width: 6),
                               Text(
-                                'Contesto & Token',
+                                _tr('Contesto & Token', 'Context & tokens'),
                                 style: TextStyle(
                                   color: tokens.textPrimary,
                                   fontSize: 13,
@@ -692,7 +694,7 @@ class _TranscriptViewState extends ConsumerState<TranscriptView> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
-                            'Utilizzo:',
+                            _tr('Utilizzo:', 'Usage:'),
                             style: TextStyle(
                               color: tokens.textSecondary,
                               fontSize: 11,
@@ -731,7 +733,7 @@ class _TranscriptViewState extends ConsumerState<TranscriptView> {
                       _tokenRow('Token Output', outTokens.toString(), tokens),
                       _tokenRow('Token Cache', cacheTokens.toString(), tokens),
                       _tokenRow(
-                        'Costo Stimato',
+                        _tr('Costo Stimato', 'Estimated cost'),
                         cost == null ? '—' : '\$${cost.toStringAsFixed(4)}',
                         tokens,
                       ),
@@ -759,7 +761,7 @@ class _TranscriptViewState extends ConsumerState<TranscriptView> {
                               )
                             : const Icon(Icons.compress, size: 15),
                         label: Text(
-                          compacting ? 'Compattazione...' : 'Compatta Contesto',
+                          compacting ? _tr('Compattazione...', 'Compacting...') : _tr('Compatta Contesto', 'Compact context'),
                           style: const TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
@@ -774,14 +776,14 @@ class _TranscriptViewState extends ConsumerState<TranscriptView> {
                                   if (mounted && ctx.mounted) {
                                     FrameSnackBar.show(
                                       context,
-                                      message: 'Compattazione completata!',
+                                      message: _tr('Compattazione completata!', 'Compaction complete!'),
                                     );
                                   }
                                 } catch (e) {
                                   if (mounted && ctx.mounted) {
                                     FrameSnackBar.show(
                                       context,
-                                      message: 'Errore compattazione: $e',
+                                      message: _tr('Errore compattazione: $e', 'Compaction failed: $e'),
                                     );
                                   }
                                 } finally {
@@ -916,7 +918,7 @@ class _TranscriptViewState extends ConsumerState<TranscriptView> {
 
             if (level == 1) {
               // Level 1: Agent Models
-              title = 'Costi Modelli Agente';
+              title = _tr('Costi Modelli Agente', 'Agent model costs');
               titleIcon = Icons.smart_toy_outlined;
               content = Column(
                 mainAxisSize: MainAxisSize.min,
@@ -934,7 +936,7 @@ class _TranscriptViewState extends ConsumerState<TranscriptView> {
                       children: [
                         Expanded(
                           child: Text(
-                            'Costo riportato da Pi',
+                            _tr('Costo riportato da Pi', 'Cost reported by Pi'),
                             style: TextStyle(
                               color: tokens.textSecondary,
                               fontSize: 11,
@@ -955,7 +957,7 @@ class _TranscriptViewState extends ConsumerState<TranscriptView> {
                   ),
                   const SizedBox(height: 8),
                   if (agentModelCosts.isEmpty)
-                    Text('Costi per modello non disponibili', style: TextStyle(color: tokens.textMuted, fontSize: 11))
+                    Text(_tr('Costi per modello non disponibili', 'Model costs unavailable'), style: TextStyle(color: tokens.textMuted, fontSize: 11))
                   else
                   ConstrainedBox(
                     constraints: const BoxConstraints(maxHeight: 280),
@@ -1036,7 +1038,7 @@ class _TranscriptViewState extends ConsumerState<TranscriptView> {
               );
             } else if (level == 2) {
               // Level 2: Subagents Breakdown
-              title = 'Costi Subagenti & Modelli';
+              title = _tr('Costi Subagenti & Modelli', 'Subagent & model costs');
               titleIcon = Icons.hub_outlined;
               content = Column(
                 mainAxisSize: MainAxisSize.min,
@@ -1054,7 +1056,7 @@ class _TranscriptViewState extends ConsumerState<TranscriptView> {
                       children: [
                         Expanded(
                           child: Text(
-                            'Costi sessioni figlie ($agentCount agenti)',
+                            _tr('Costi sessioni figlie ($agentCount agenti)', 'Child session costs ($agentCount agents)'),
                             style: TextStyle(
                               color: tokens.textSecondary,
                               fontSize: 11,
@@ -1079,7 +1081,7 @@ class _TranscriptViewState extends ConsumerState<TranscriptView> {
                       padding: const EdgeInsets.symmetric(vertical: 12),
                       child: Center(
                         child: Text(
-                          'Nessun subagente eseguito.',
+                          _tr('Nessun subagente eseguito.', 'No subagents executed.'),
                           style: TextStyle(color: tokens.textMuted, fontSize: 11),
                         ),
                       ),
@@ -1103,7 +1105,7 @@ class _TranscriptViewState extends ConsumerState<TranscriptView> {
                               key: ValueKey('unlinked-session-cost-${sub.id}'),
                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
                               child: Text(
-                                'Sessione figlia non attribuita: ${sub.name} · $subModel · $subCost',
+                                _tr('Sessione figlia non attribuita: ${sub.name} · $subModel · $subCost', 'Unattributed child session: ${sub.name} · $subModel · $subCost'),
                                 style: TextStyle(color: tokens.textMuted, fontSize: 11),
                               ),
                             );
@@ -1126,7 +1128,7 @@ class _TranscriptViewState extends ConsumerState<TranscriptView> {
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
                                       Text(
-                                        sub.name.isNotEmpty ? sub.name : 'Subagente #${i + 1}',
+                                        sub.name.isNotEmpty ? sub.name : _tr('Subagente #${i + 1}', 'Subagent #${i + 1}'),
                                         style: TextStyle(
                                           color: tokens.textPrimary,
                                           fontSize: 11.5,
@@ -1176,7 +1178,7 @@ class _TranscriptViewState extends ConsumerState<TranscriptView> {
               );
             } else {
               // Level 0: Main Overview (Total, Agent, Subagents)
-              title = 'Dettaglio Costi Sessione';
+              title = _tr('Dettaglio Costi Sessione', 'Session cost details');
               titleIcon = Icons.monetization_on_outlined;
               content = Column(
                 mainAxisSize: MainAxisSize.min,
@@ -1194,7 +1196,7 @@ class _TranscriptViewState extends ConsumerState<TranscriptView> {
                       children: [
                         Expanded(
                           child: Text(
-                            'Costo riportato da Pi',
+                            _tr('Costo riportato da Pi', 'Cost reported by Pi'),
                             style: TextStyle(
                               color: tokens.textSecondary,
                               fontSize: 11.5,
@@ -1216,7 +1218,7 @@ class _TranscriptViewState extends ConsumerState<TranscriptView> {
                   ),
                   const SizedBox(height: 10),
                   Text(
-                    'Il costo Pi può già includere i subagenti. Le cifre non vengono sommate.',
+                    _tr('Il costo Pi può già includere i subagenti. Le cifre non vengono sommate.', 'Pi costs may already include subagents. The amounts are not added together.'),
                     style: TextStyle(
                       color: tokens.textMuted,
                       fontSize: 10.5,
@@ -1250,7 +1252,7 @@ class _TranscriptViewState extends ConsumerState<TranscriptView> {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Text(
-                                  'Sessione Pi',
+                                  _tr('Sessione Pi', 'Pi session'),
                                   style: TextStyle(
                                     color: tokens.textPrimary,
                                     fontSize: 12,
@@ -1258,7 +1260,7 @@ class _TranscriptViewState extends ConsumerState<TranscriptView> {
                                   ),
                                 ),
                                 Text(
-                                  sessionState.currentModel ?? 'Modello sessione',
+                                  sessionState.currentModel ?? _tr('Modello sessione', 'Session model'),
                                   style: TextStyle(
                                     color: tokens.textMuted,
                                     fontSize: 10,
@@ -1314,7 +1316,7 @@ class _TranscriptViewState extends ConsumerState<TranscriptView> {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Text(
-                                  'Subagenti',
+                                  _tr('Subagenti', 'Subagents'),
                                   style: TextStyle(
                                     color: tokens.textPrimary,
                                     fontSize: 12,
@@ -1431,6 +1433,7 @@ class _TranscriptViewState extends ConsumerState<TranscriptView> {
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(appLanguageProvider);
     final tokens = context.tokens;
     final sessionState = ref.watch(sessionStateFamily(widget.sessionId));
     final stats = sessionState.sessionStats;
@@ -1443,9 +1446,9 @@ class _TranscriptViewState extends ConsumerState<TranscriptView> {
         ? (effectiveTokens.toDouble() / sessionState.contextWindowOverride! * 100.0)
         : (contextUsage?['percent'] as num?);
     final contextLabel = contextUsage == null
-        ? 'non disponibile'
+        ? _tr('non disponibile', 'unavailable')
         : effectivePercent == null
-        ? 'post-compattazione · —/${_formatTokens(effectiveContextWindow)}'
+        ? _tr('post-compattazione · —/${_formatTokens(effectiveContextWindow)}', 'post-compaction · —/${_formatTokens(effectiveContextWindow)}')
         : '${effectivePercent.toStringAsFixed(1)}% · ${_formatTokens(effectiveTokens)}/${_formatTokens(effectiveContextWindow)}';
     final subagents = ref.watch(subagentsFamily(widget.sessionId));
     final todos = ref.watch(todosFamily(widget.sessionId));
@@ -1632,10 +1635,10 @@ class _TranscriptViewState extends ConsumerState<TranscriptView> {
                                       )
                                   : null;
                           final label = isLocalHidden
-                              ? 'Carica messaggi precedenti ($hiddenCount non mostrati)'
+                              ? _tr('Carica messaggi precedenti ($hiddenCount non mostrati)', 'Load previous messages ($hiddenCount hidden)')
                               : (remainingRemote != null && remainingRemote > 0
-                                  ? 'Carica altri messaggi dalla cronologia ($remainingRemote rimanenti)'
-                                  : 'Carica altri messaggi dalla cronologia');
+                                  ? _tr('Carica altri messaggi dalla cronologia ($remainingRemote rimanenti)', 'Load more history ($remainingRemote remaining)')
+                                  : _tr('Carica altri messaggi dalla cronologia', 'Load more messages from history'));
 
                           return _MeasureSize(
                             onSizeChange: (s) => _entryHeights['banner'] = s.height,
@@ -2052,7 +2055,7 @@ class _TranscriptViewState extends ConsumerState<TranscriptView> {
                                 minWidth: 26,
                                 minHeight: 26,
                               ),
-                              tooltip: 'Salva',
+                              tooltip: _tr('Salva', 'Save'),
                               onPressed: _submitRename,
                             ),
                             IconButton(
@@ -2067,7 +2070,7 @@ class _TranscriptViewState extends ConsumerState<TranscriptView> {
                                 minWidth: 26,
                                 minHeight: 26,
                               ),
-                              tooltip: 'Annulla',
+                              tooltip: _tr('Annulla', 'Cancel'),
                               onPressed: _cancelRename,
                             ),
                           ],
@@ -2081,7 +2084,7 @@ class _TranscriptViewState extends ConsumerState<TranscriptView> {
                           sessionState.sessionName ?? widget.sessionId,
                         ),
                         child: Tooltip(
-                          message: 'Doppio clic per rinominare',
+                          message: _tr('Doppio clic per rinominare', 'Double-click to rename'),
                           waitDuration: const Duration(milliseconds: 400),
                           child: MouseRegion(
                             cursor: SystemMouseCursors.click,
@@ -2129,7 +2132,7 @@ class _TranscriptViewState extends ConsumerState<TranscriptView> {
                           child: Text(
                             sessionState.cwd.isNotEmpty
                                 ? sessionState.cwd
-                                : 'Nessuna cartella aperta',
+                                : _tr('Nessuna cartella aperta', 'No folder open'),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
@@ -2286,7 +2289,7 @@ class _TranscriptViewState extends ConsumerState<TranscriptView> {
                         ),
                         const SizedBox(width: 5),
                         Text(
-                          'Attività ($completedCount/$totalCount)',
+                          _tr('Attività ($completedCount/$totalCount)', 'Tasks ($completedCount/$totalCount)'),
                           style: TextStyle(
                             color: _activeBookTab == _ActiveBookTab.todos
                                 ? tokens.textPrimary
@@ -2356,7 +2359,7 @@ class _TranscriptViewState extends ConsumerState<TranscriptView> {
                         ),
                         const SizedBox(width: 5),
                         Text(
-                          'Subagenti (${subagents.where((s) => !s.isUnlinked).length})',
+                          _tr('Subagenti (${subagents.where((s) => !s.isUnlinked).length})', 'Subagents (${subagents.where((s) => !s.isUnlinked).length})'),
                           style: TextStyle(
                             color: _activeBookTab == _ActiveBookTab.subagents
                                 ? tokens.textPrimary
@@ -2479,7 +2482,7 @@ class _TranscriptViewState extends ConsumerState<TranscriptView> {
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  'Elaborazione in corso...',
+                  _tr('Elaborazione in corso...', 'Processing...'),
                   style: TextStyle(
                     color: tokens.textPrimary,
                     fontSize: 12,
@@ -2530,14 +2533,14 @@ class _TranscriptViewState extends ConsumerState<TranscriptView> {
         if (!mounted) return;
         FrameSnackBar.show(
           context,
-          message: 'Nuovo ramo avviato: $newSid',
+          message: _tr('Nuovo ramo avviato: $newSid', 'New branch started: $newSid'),
         );
       }
     } catch (e) {
       if (!mounted) return;
       FrameSnackBar.show(
         context,
-        message: 'Errore fork: $e',
+        message: _tr('Errore fork: $e', 'Fork failed: $e'),
         backgroundColor: context.tokens.danger,
       );
     }
@@ -2629,7 +2632,7 @@ class _TranscriptViewState extends ConsumerState<TranscriptView> {
                           const SizedBox(width: 4),
                           Flexible(
                             child: Text(
-                              'Riparti da qui',
+                              _tr('Riparti da qui', 'Branch from here'),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
@@ -2661,7 +2664,7 @@ class _TranscriptViewState extends ConsumerState<TranscriptView> {
             if (sendError != null) ...[
               const SizedBox(height: 8),
               Text(
-                'Invio non riuscito: $sendError',
+                _tr('Invio non riuscito: $sendError', 'Send failed: $sendError'),
                 key: ValueKey('failed-message-error-${entry.id}'),
                 style: TextStyle(color: tokens.danger, fontSize: 12),
               ),
@@ -2701,7 +2704,7 @@ class _TranscriptViewState extends ConsumerState<TranscriptView> {
             ),
             IconButton(
               key: ValueKey('retry-user-message-${entry.id}'),
-              tooltip: 'Riprova invio',
+              tooltip: _tr('Riprova invio', 'Retry sending'),
               onPressed: () => unawaited(
                 ref
                     .read(sessionStateFamily(widget.sessionId).notifier)
@@ -2795,7 +2798,7 @@ class _TranscriptViewState extends ConsumerState<TranscriptView> {
                           ),
                           const SizedBox(width: 4),
                           Text(
-                            'Assistente',
+                            _tr('Assistente', 'Assistant'),
                             style: TextStyle(
                               color: tokens.textSecondary,
                               fontSize: 11,
@@ -2846,12 +2849,12 @@ class _TranscriptViewState extends ConsumerState<TranscriptView> {
                             const SizedBox(width: 6),
                           ],
                           IconButton(
-                            tooltip: 'Copia messaggio',
+                            tooltip: _tr('Copia messaggio', 'Copy message'),
                             onPressed: () {
                               Clipboard.setData(ClipboardData(text: entry.text));
                               FrameSnackBar.show(
                                 context,
-                                message: 'Messaggio copiato negli appunti',
+                                message: _tr('Messaggio copiato negli appunti', 'Message copied to clipboard'),
                                 duration: const Duration(seconds: 1),
                               );
                             },
@@ -2948,7 +2951,7 @@ class _TranscriptViewState extends ConsumerState<TranscriptView> {
                       border: Border.all(color: tokens.warning.withValues(alpha: 0.3)),
                     ),
                     child: Text(
-                      'annullato',
+                      _tr('annullato', 'cancelled'),
                       style: TextStyle(
                         fontSize: 10,
                         color: tokens.warning,
@@ -2983,14 +2986,14 @@ class _TranscriptViewState extends ConsumerState<TranscriptView> {
                 const SizedBox(width: 6),
                 IconButton(
                   icon: const Icon(Icons.copy, size: 13),
-                  tooltip: 'Copia output',
+                  tooltip: _tr('Copia output', 'Copy output'),
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
                   onPressed: () {
                     Clipboard.setData(ClipboardData(text: output));
                     FrameSnackBar.show(
                       context,
-                      message: 'Output copiato',
+                      message: _tr('Output copiato', 'Output copied'),
                       duration: const Duration(seconds: 1),
                     );
                   },
@@ -3015,7 +3018,7 @@ class _TranscriptViewState extends ConsumerState<TranscriptView> {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
               child: Text(
-                'Output parziale (troncato)',
+                _tr('Output parziale (troncato)', 'Partial output (truncated)'),
                 style: TextStyle(
                   fontStyle: FontStyle.italic,
                   fontSize: 10,
@@ -3045,7 +3048,7 @@ class _TranscriptViewState extends ConsumerState<TranscriptView> {
             child: Text(
               entry.text.isNotEmpty
                   ? entry.text
-                  : 'Diramazione creata da ${entry.metadata?['fromId'] ?? ''}',
+                  : _tr('Diramazione creata da ${entry.metadata?['fromId'] ?? ''}', 'Branch created from ${entry.metadata?['fromId'] ?? ''}'),
               style: TextStyle(
                 fontSize: 11,
                 color: tokens.textSecondary,
@@ -3082,7 +3085,7 @@ class _TranscriptViewState extends ConsumerState<TranscriptView> {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              entry.text.isNotEmpty ? entry.text : 'Contesto compattato',
+              entry.text.isNotEmpty ? entry.text : _tr('Contesto compattato', 'Context compacted'),
               style: TextStyle(
                 fontSize: 11,
                 color: tokens.textSecondary,
@@ -3092,7 +3095,7 @@ class _TranscriptViewState extends ConsumerState<TranscriptView> {
           ),
           if (entry.metadata?['tokensBefore'] != null)
             Text(
-              '${entry.metadata!['tokensBefore']} token iniziali',
+              _tr('${entry.metadata!['tokensBefore']} token iniziali', '${entry.metadata!['tokensBefore']} initial tokens'),
               style: TextStyle(
                 fontFamily: tokens.monoFontFamily,
                 fontSize: 10,

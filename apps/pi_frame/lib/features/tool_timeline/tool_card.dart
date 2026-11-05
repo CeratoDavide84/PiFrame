@@ -62,7 +62,8 @@ class _ToolCardState extends State<ToolCard> {
   void didUpdateWidget(covariant ToolCard oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.tool.isRunning &&
-        (!oldWidget.tool.isRunning || widget.tool.startedAt != oldWidget.tool.startedAt)) {
+        (!oldWidget.tool.isRunning ||
+            widget.tool.startedAt != oldWidget.tool.startedAt)) {
       _startLiveTimer();
     } else if (!widget.tool.isRunning && oldWidget.tool.isRunning) {
       _stopLiveTimer();
@@ -129,7 +130,13 @@ class _ToolCardState extends State<ToolCard> {
   }
 
   String? _timeoutLabel(Map<String, dynamic> args) {
-    for (final key in ['timeout', 'timeoutSeconds', 'timeout_seconds', 'timeoutMs', 'timeout_ms']) {
+    for (final key in [
+      'timeout',
+      'timeoutSeconds',
+      'timeout_seconds',
+      'timeoutMs',
+      'timeout_ms',
+    ]) {
       var value = args[key]?.toString().trim().toLowerCase() ?? '';
       var milliseconds = key == 'timeoutMs' || key == 'timeout_ms';
       if (value.endsWith('ms')) {
@@ -281,6 +288,7 @@ class _ToolCardState extends State<ToolCard> {
 
   @override
   Widget build(BuildContext context) {
+    final isItalian = Localizations.localeOf(context).languageCode == 'it';
     final tokens = context.tokens;
     final tool = widget.tool;
     final isTerminal = _isTerminalTool(tool.toolName);
@@ -635,7 +643,9 @@ class _ToolCardState extends State<ToolCard> {
                                   ),
                                   const SizedBox(width: 3),
                                   Text(
-                                    'Copia comando',
+                                    isItalian
+                                        ? 'Copia comando'
+                                        : 'Copy command',
                                     style: TextStyle(
                                       color: tokens.textMuted,
                                       fontSize: 10,
@@ -712,7 +722,9 @@ class _ToolCardState extends State<ToolCard> {
               ] else if (hasOutput) ...[
                 Builder(
                   builder: (context) {
-                    final notifData = TaskNotificationData.tryParse(tool.output);
+                    final notifData = TaskNotificationData.tryParse(
+                      tool.output,
+                    );
                     if (notifData != null) {
                       return Padding(
                         padding: const EdgeInsets.all(8),

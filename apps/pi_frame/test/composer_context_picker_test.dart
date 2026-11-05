@@ -99,7 +99,7 @@ void main() {
         find.byKey(const ValueKey('context-window-preset-dropdown')),
       );
       await tester.pumpAndSettle();
-      expect(find.text('Custom').last, findsOneWidget);
+      expect(find.text('Personalizzato').last, findsOneWidget);
       expect(find.text('272k (Tier base)').last, findsOneWidget);
       await tester.tap(find.text('1M (Max / Tier esteso)').last);
       await tester.pumpAndSettle();
@@ -126,7 +126,7 @@ void main() {
         find.byKey(const ValueKey('context-window-preset-dropdown')),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Custom').last);
+      await tester.tap(find.text('Personalizzato').last);
       await tester.pumpAndSettle();
       expect(
         find.byKey(const ValueKey('context-window-custom-slider')),

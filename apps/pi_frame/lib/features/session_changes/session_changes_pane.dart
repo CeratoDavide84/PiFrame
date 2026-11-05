@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pi_frame_theme/pi_frame_theme.dart';
 
+import '../../data/language/language_settings.dart';
 import '../workspace/repository_workspace.dart' show WorkspacePane;
 import 'review_file_diff_viewer.dart';
 import 'session_changes_provider.dart';
@@ -27,6 +28,8 @@ class SessionChangesPane extends ConsumerStatefulWidget {
 }
 
 class _SessionChangesPaneState extends ConsumerState<SessionChangesPane> {
+  String _tr(String it, String en) =>
+      ref.read(appLanguageProvider) == AppLanguage.it ? it : en;
   @override
   void initState() {
     super.initState();
@@ -53,6 +56,7 @@ class _SessionChangesPaneState extends ConsumerState<SessionChangesPane> {
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(appLanguageProvider);
     final tokens = context.tokens;
     final changes = ref.watch(sessionChangesProvider(widget.sessionId));
     final expandedFiles = ref.watch(
@@ -272,7 +276,7 @@ class _SessionChangesPaneState extends ConsumerState<SessionChangesPane> {
                     minHeight: 26,
                   ),
                   icon: const Icon(Icons.refresh, size: 16),
-                  tooltip: 'Aggiorna modifiche',
+                  tooltip: _tr('Aggiorna modifiche', 'Refresh changes'),
                   onPressed: () {
                     ref
                         .read(sessionChangesProvider(widget.sessionId).notifier)
@@ -291,7 +295,7 @@ class _SessionChangesPaneState extends ConsumerState<SessionChangesPane> {
                       minHeight: 26,
                     ),
                     icon: const Icon(Icons.close, size: 16),
-                    tooltip: 'Chiudi revisione',
+                    tooltip: _tr('Chiudi revisione', 'Close review'),
                     onPressed: widget.onClose,
                   ),
                 ],
@@ -322,7 +326,10 @@ class _SessionChangesPaneState extends ConsumerState<SessionChangesPane> {
                           ),
                           const SizedBox(height: 10),
                           Text(
-                            'Nessun file modificato in questa sessione.',
+                            _tr(
+                              'Nessun file modificato in questa sessione.',
+                              'No files changed in this session.',
+                            ),
                             style: TextStyle(
                               color: tokens.textMuted,
                               fontSize: 12,

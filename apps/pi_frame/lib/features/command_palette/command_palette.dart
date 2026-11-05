@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pi_frame_theme/pi_frame_theme.dart';
 
 import '../../data/daemon/daemon_providers.dart';
+import '../../data/language/language_settings.dart';
 import '../../ui/frame_snack_bar.dart';
 import '../sessions_sidebar/session_actions.dart';
 import '../browser/browser_models.dart';
@@ -47,6 +48,8 @@ class CommandPalette extends ConsumerStatefulWidget {
 }
 
 class _CommandPaletteState extends ConsumerState<CommandPalette> {
+  String _tr(String it, String en) =>
+      ref.read(appLanguageProvider) == AppLanguage.it ? it : en;
   final _searchController = TextEditingController();
   int _selectedIndex = 0;
   bool _executing = false;
@@ -74,7 +77,7 @@ class _CommandPaletteState extends ConsumerState<CommandPalette> {
       if (mounted) Navigator.of(context).pop();
     } catch (error) {
       if (mounted) {
-        FrameSnackBar.show(context, message: 'Azione non riuscita: $error');
+        FrameSnackBar.show(context, message: _tr('Azione non riuscita: $error', 'Action failed: $error'));
       }
     } finally {
       if (mounted) setState(() => _executing = false);
@@ -95,12 +98,12 @@ class _CommandPaletteState extends ConsumerState<CommandPalette> {
     return [
       PaletteAction(
         id: 'new_session',
-        title: 'Crea nuova sessione',
-        subtitle: 'Avvia una nuova sessione Pi',
+        title: _tr('Crea nuova sessione', 'Create new session'),
+        subtitle: _tr('Avvia una nuova sessione Pi', 'Start a new Pi session'),
         icon: Icons.add_circle_outline,
         onExecute: () async {
           if (pcpClient == null) return;
-          await createSession(context, ref, name: 'Nuova Sessione');
+          await createSession(context, ref, name: _tr('Nuova Sessione', 'New session'));
           if (!mounted || !context.mounted) return;
           ref.invalidate(sessionListProvider);
         },
@@ -109,8 +112,8 @@ class _CommandPaletteState extends ConsumerState<CommandPalette> {
           !ref.watch(sessionStateFamily(activeSessionId)).readOnly) ...[
         PaletteAction(
           id: 'compact',
-          title: 'Compatta contesto',
-          subtitle: 'Esegui manual compaction per ridurre i token',
+          title: _tr('Compatta contesto', 'Compact context'),
+          subtitle: _tr('Esegui manual compaction per ridurre i token', 'Run manual compaction to reduce tokens'),
           icon: Icons.compress,
           onExecute: () async {
             await ref
@@ -120,8 +123,8 @@ class _CommandPaletteState extends ConsumerState<CommandPalette> {
         ),
         PaletteAction(
           id: 'clear_queue',
-          title: 'Svuota coda',
-          subtitle: 'Rimuovi tutti i messaggi steer e follow-up in attesa',
+          title: _tr('Svuota coda', 'Clear queue'),
+          subtitle: _tr('Rimuovi tutti i messaggi steer e follow-up in attesa', 'Remove all pending steer and follow-up messages'),
           icon: Icons.clear_all,
           onExecute: () async {
             await ref
@@ -131,8 +134,8 @@ class _CommandPaletteState extends ConsumerState<CommandPalette> {
         ),
         PaletteAction(
           id: 'interrupt',
-          title: 'Interrompi agente (Esc)',
-          subtitle: 'Ferma il modello in esecuzione',
+          title: _tr('Interrompi agente (Esc)', 'Stop agent (Esc)'),
+          subtitle: _tr('Ferma il modello in esecuzione', 'Stop the running model'),
           icon: Icons.stop_circle_outlined,
           onExecute: () async {
             await ref
@@ -144,8 +147,8 @@ class _CommandPaletteState extends ConsumerState<CommandPalette> {
       if (ref.watch(browserPaneSupportedProvider)) ...[
         PaletteAction(
           id: 'switch_to_browser',
-          title: 'Mostra Web Browser',
-          subtitle: 'Apri il browser web integrato nel pannello laterale',
+          title: _tr('Mostra Web Browser', 'Show web browser'),
+          subtitle: _tr('Apri il browser web integrato nel pannello laterale', 'Open the integrated web browser in the side panel'),
           icon: Icons.language_outlined,
           onExecute: () async {
             ref.read(rightPaneModeProvider.notifier).state =
@@ -154,8 +157,8 @@ class _CommandPaletteState extends ConsumerState<CommandPalette> {
         ),
         PaletteAction(
           id: 'switch_to_git',
-          title: 'Mostra Modifiche Git',
-          subtitle: 'Mostra il pannello delle modifiche Git nel pannello laterale',
+          title: _tr('Mostra Modifiche Git', 'Show Git changes'),
+          subtitle: _tr('Mostra il pannello delle modifiche Git nel pannello laterale', 'Show Git changes in the side panel'),
           icon: Icons.source_outlined,
           onExecute: () async {
             ref.read(rightPaneModeProvider.notifier).state = RightPaneMode.git;
@@ -164,8 +167,8 @@ class _CommandPaletteState extends ConsumerState<CommandPalette> {
       ],
       PaletteAction(
         id: 'settings',
-        title: 'Apri Impostazioni',
-        subtitle: 'Configura percorso Pi, timeout worker e aspetto',
+        title: _tr('Apri Impostazioni', 'Open settings'),
+        subtitle: _tr('Configura percorso Pi, timeout worker e aspetto', 'Configure Pi path, worker timeouts and appearance'),
         icon: Icons.settings,
         onExecute: () async {
           widget.onOpenSettings?.call();
@@ -176,6 +179,7 @@ class _CommandPaletteState extends ConsumerState<CommandPalette> {
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(appLanguageProvider);
     final tokens = context.tokens;
     final allActions = _buildActions(context);
     final query = _searchController.text.trim().toLowerCase();
@@ -229,7 +233,7 @@ class _CommandPaletteState extends ConsumerState<CommandPalette> {
                               fontSize: 15,
                             ),
                             decoration: InputDecoration(
-                              hintText: 'Cerca un\'azione o comando...',
+                              hintText: _tr('Cerca un\'azione o comando...', 'Search for an action or command...'),
                               hintStyle: TextStyle(
                                 color: tokens.textMuted,
                                 fontSize: 14,
@@ -273,7 +277,7 @@ class _CommandPaletteState extends ConsumerState<CommandPalette> {
                     child: filtered.isEmpty
                         ? Center(
                             child: Text(
-                              'Nessuna azione trovata',
+                              _tr('Nessuna azione trovata', 'No actions found'),
                               style: TextStyle(
                                 color: tokens.textMuted,
                                 fontSize: 13,

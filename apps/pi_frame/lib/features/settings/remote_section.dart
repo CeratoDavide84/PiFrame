@@ -7,6 +7,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../data/daemon/daemon_providers.dart';
+import '../../data/language/language_settings.dart';
 import '../../ui/frame_snack_bar.dart';
 
 class RemoteSection extends ConsumerStatefulWidget {
@@ -17,6 +18,8 @@ class RemoteSection extends ConsumerStatefulWidget {
 }
 
 class _RemoteSectionState extends ConsumerState<RemoteSection> {
+  String _tr(String it, String en) =>
+      ref.read(appLanguageProvider) == AppLanguage.it ? it : en;
   bool _isLoading = true;
   bool _isToggling = false;
   String? _errorMessage;
@@ -169,14 +172,14 @@ class _RemoteSectionState extends ConsumerState<RemoteSection> {
         final tokens = context.tokens;
         FrameSnackBar.show(
           context,
-          message: 'cloudflared scaricato e pronto in $installedPath!',
+          message: _tr('cloudflared scaricato e pronto in $installedPath!', 'cloudflared downloaded and ready at $installedPath!'),
           backgroundColor: tokens.success,
         );
       }
       await _fetchStatus();
     } catch (e) {
       if (mounted) {
-        setState(() => _errorMessage = 'Errore durante l\'installazione di cloudflared: $e');
+        setState(() => _errorMessage = _tr('Errore durante l\'installazione di cloudflared: $e', 'Failed to install cloudflared: $e'));
       }
     } finally {
       if (mounted) {
@@ -201,14 +204,14 @@ class _RemoteSectionState extends ConsumerState<RemoteSection> {
         final tokens = context.tokens;
         FrameSnackBar.show(
           context,
-          message: data['message'] as String? ?? 'Installazione di Tailscale avviata! Conferma il prompt di Windows.',
+          message: data['message'] as String? ?? _tr('Installazione di Tailscale avviata! Conferma il prompt di Windows.', 'Tailscale installation started! Confirm the Windows prompt.'),
           backgroundColor: tokens.accent,
         );
       }
       await _fetchStatus();
     } catch (e) {
       if (mounted) {
-        setState(() => _errorMessage = 'Errore durante l\'installazione di Tailscale: $e');
+        setState(() => _errorMessage = _tr('Errore durante l\'installazione di Tailscale: $e', 'Failed to install Tailscale: $e'));
       }
     } finally {
       if (mounted) {
@@ -234,14 +237,14 @@ class _RemoteSectionState extends ConsumerState<RemoteSection> {
         final tokens = context.tokens;
         FrameSnackBar.show(
           context,
-          message: 'Nome host Tailscale aggiornato! Nuovo dominio: ${data['domain'] ?? text}',
+          message: _tr('Nome host Tailscale aggiornato! Nuovo dominio: ${data['domain'] ?? text}', 'Tailscale hostname updated! New domain: ${data['domain'] ?? text}'),
           backgroundColor: tokens.success,
         );
       }
       await _fetchStatus();
     } catch (e) {
       if (mounted) {
-        setState(() => _errorMessage = 'Errore durante la ridenominazione: $e');
+        setState(() => _errorMessage = _tr('Errore durante la ridenominazione: $e', 'Rename failed: $e'));
       }
     } finally {
       if (mounted) {
@@ -258,17 +261,17 @@ class _RemoteSectionState extends ConsumerState<RemoteSection> {
       final shouldInstall = await showDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(
-          title: const Text('Tailscale non installato'),
-          content: const Text(
+          title: Text(_tr('Tailscale non installato', 'Tailscale is not installed')),
+          content: Text(_tr(
             'Per utilizzare il tunnel permanente Tailscale è necessario installare Tailscale sul PC.\n\n'
             'Vuoi avviare l\'installazione automatica adesso?',
-          ),
+            'Tailscale must be installed on this computer to use its permanent tunnel.\n\nStart automatic installation now?')),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annulla')),
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(_tr('Annulla', 'Cancel'))),
             FilledButton.icon(
               icon: const Icon(Icons.download, size: 18),
               onPressed: () => Navigator.pop(ctx, true),
-              label: const Text('Installa Tailscale'),
+              label: Text(_tr('Installa Tailscale', 'Install Tailscale')),
             ),
           ],
         ),
@@ -283,17 +286,17 @@ class _RemoteSectionState extends ConsumerState<RemoteSection> {
       final shouldInstall = await showDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(
-          title: const Text('cloudflared richiesto'),
-          content: const Text(
+          title: Text(_tr('cloudflared richiesto', 'cloudflared required')),
+          content: Text(_tr(
             'Per avviare la connessione remota con Cloudflare è necessario l\'eseguibile ufficiale cloudflared.\n\n'
             'Vuoi scaricarlo e installarlo automaticamente in ~/.piframe/bin/? Non richiede permessi di amministratore.',
-          ),
+            'The official cloudflared executable is required for a Cloudflare remote connection.\n\nDownload and install it automatically in ~/.piframe/bin/? Administrator permissions are not required.')),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annulla')),
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(_tr('Annulla', 'Cancel'))),
             FilledButton.icon(
               icon: const Icon(Icons.download, size: 18),
               onPressed: () => Navigator.pop(ctx, true),
-              label: const Text('Installa e Avvia'),
+              label: Text(_tr('Installa e Avvia', 'Install and start')),
             ),
           ],
         ),
@@ -360,14 +363,14 @@ class _RemoteSectionState extends ConsumerState<RemoteSection> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Revoca Dispositivo'),
-        content: Text('Vuoi revocare l\'accesso a "$name"? La connessione verrà terminata immediatamente.'),
+        title: Text(_tr('Revoca Dispositivo', 'Revoke device')),
+        content: Text(_tr('Vuoi revocare l\'accesso a "$name"? La connessione verrà terminata immediatamente.', 'Revoke access for "$name"? Its connection will end immediately.')),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annulla')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(_tr('Annulla', 'Cancel'))),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Theme.of(ctx).colorScheme.error),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Revoca'),
+            child: Text(_tr('Revoca', 'Revoke')),
           ),
         ],
       ),
@@ -389,14 +392,14 @@ class _RemoteSectionState extends ConsumerState<RemoteSection> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Revoca Tutti i Dispositivi'),
-        content: const Text('Tutte le sessioni remote verranno disconnesse e i token invalidati immediatamente. Continuare?'),
+        title: Text(_tr('Revoca Tutti i Dispositivi', 'Revoke all devices')),
+        content: Text(_tr('Tutte le sessioni remote verranno disconnesse e i token invalidati immediatamente. Continuare?', 'All remote sessions will be disconnected and their tokens invalidated immediately. Continue?')),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annulla')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(_tr('Annulla', 'Cancel'))),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Theme.of(ctx).colorScheme.error),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Revoca Tutti'),
+            child: Text(_tr('Revoca Tutti', 'Revoke all')),
           ),
         ],
       ),
@@ -433,17 +436,17 @@ class _RemoteSectionState extends ConsumerState<RemoteSection> {
       final confirmed = await showDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(
-          title: const Text('Conferma Modalità Controllo'),
-          content: Text(
+          title: Text(_tr('Conferma Modalità Controllo', 'Confirm control mode')),
+          content: Text(_tr(
             'Stai concedendo i permessi di CONTROLLO COMPLETO a "$deviceName".\n\n'
             'Questo dispositivo potrà inviare prompt ed eseguire comandi sul tuo computer con gli stessi privilegi del tuo utente.',
-          ),
+            'You are granting FULL CONTROL to "$deviceName".\n\nThis device can send prompts and run commands on your computer with the same privileges as your user account.')),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annulla')),
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(_tr('Annulla', 'Cancel'))),
             FilledButton(
               style: FilledButton.styleFrom(backgroundColor: Theme.of(ctx).colorScheme.error),
               onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Concedi Controllo'),
+              child: Text(_tr('Concedi Controllo', 'Grant control')),
             ),
           ],
         ),
@@ -464,14 +467,15 @@ class _RemoteSectionState extends ConsumerState<RemoteSection> {
   String _formatExpires(int? expiresAt) {
     if (expiresAt == null) return '';
     final diff = expiresAt - DateTime.now().millisecondsSinceEpoch;
-    if (diff <= 0) return 'Scaduto';
+    if (diff <= 0) return _tr('Scaduto', 'Expired');
     final mins = diff ~/ 60000;
     final secs = (diff % 60000) ~/ 1000;
-    return 'Scade tra ${mins}m ${secs.toString().padLeft(2, '0')}s';
+    return _tr('Scade tra ${mins}m ${secs.toString().padLeft(2, '0')}s', 'Expires in ${mins}m ${secs.toString().padLeft(2, '0')}s');
   }
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(appLanguageProvider);
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final tokens = context.tokens;
@@ -496,10 +500,10 @@ class _RemoteSectionState extends ConsumerState<RemoteSection> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Connessione Remota Sicura', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                  Text(_tr('Connessione Remota Sicura', 'Secure remote connection'), style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
                   const SizedBox(height: 4),
                   Text(
-                    'Accedi al tuo Pi dallo smartphone o dal browser in mobilità. Tunnel crittografato, associazione one-time via QR code con URL fragment (#pair=...), token per-dispositivo con scadenza e controllo granulare dei permessi (view o control).',
+                    _tr('Accedi al tuo Pi dallo smartphone o dal browser in mobilità. Tunnel crittografato, associazione one-time via QR code con URL fragment (#pair=...), token per-dispositivo con scadenza e controllo granulare dei permessi (view o control).', 'Access Pi from your phone or browser on the go. Encrypted tunnel, one-time QR pairing via URL fragment (#pair=...), expiring per-device tokens and granular permissions (view or control).'),
                     style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
                   ),
                 ],
@@ -546,7 +550,7 @@ class _RemoteSectionState extends ConsumerState<RemoteSection> {
                     children: [
                       Row(
                         children: [
-                          Text('Abilita Accesso Remoto', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
+                          Text(_tr('Abilita Accesso Remoto', 'Enable remote access'), style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
                           const SizedBox(width: 10),
                           _buildStatusBadge(colorScheme, tokens),
                         ],
@@ -554,8 +558,8 @@ class _RemoteSectionState extends ConsumerState<RemoteSection> {
                       const SizedBox(height: 4),
                       Text(
                         _enabled
-                            ? 'Il listener remoto dedicato è attivo. Inquadra il QR code per associare un dispositivo.'
-                            : 'Disattivato (opt-in). Nessuna connessione esterna è accettata.',
+                            ? _tr('Il listener remoto dedicato è attivo. Inquadra il QR code per associare un dispositivo.', 'The dedicated remote listener is active. Scan the QR code to pair a device.')
+                            : _tr('Disattivato (opt-in). Nessuna connessione esterna è accettata.', 'Disabled (opt-in). No external connections are accepted.'),
                         style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
                       ),
                     ],
@@ -586,7 +590,7 @@ class _RemoteSectionState extends ConsumerState<RemoteSection> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Associa il tuo Smartphone', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
+                  Text(_tr('Associa il tuo Smartphone', 'Pair your smartphone'), style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
                   const SizedBox(height: 12),
 
                   LayoutBuilder(
@@ -625,9 +629,9 @@ class _RemoteSectionState extends ConsumerState<RemoteSection> {
                       final infoWidget = Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('1. Inquadra il QR con la fotocamera del telefono', style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
+                          Text(_tr('1. Inquadra il QR con la fotocamera del telefono', '1. Scan the QR code with your phone camera'), style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
                           const SizedBox(height: 4),
-                          Text('Aprirà la webapp PiFrame con associazione sicura monouso via fragment crittografico.', style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant)),
+                          Text(_tr('Aprirà la webapp PiFrame con associazione sicura monouso via fragment crittografico.', 'This opens the PiFrame web app with secure, one-time pairing via a cryptographic fragment.'), style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant)),
                           const SizedBox(height: 12),
 
                           if (_pairingExpiresAt != null) ...[
@@ -651,23 +655,23 @@ class _RemoteSectionState extends ConsumerState<RemoteSection> {
                             children: [
                               OutlinedButton.icon(
                                 icon: const Icon(Icons.refresh, size: 16),
-                                label: const Text('Nuovo codice QR'),
+                                label: Text(_tr('Nuovo codice QR', 'New QR code')),
                                 onPressed: _generateNewPairing,
                               ),
                               OutlinedButton.icon(
                                 icon: const Icon(Icons.copy, size: 16),
-                                label: const Text('Copia Link di Associazione'),
+                                label: Text(_tr('Copia Link di Associazione', 'Copy pairing link')),
                                 onPressed: () {
                                   Clipboard.setData(ClipboardData(text: _pairingUrl ?? _url!));
                                   FrameSnackBar.show(
                                     context,
-                                    message: 'Link di associazione copiato negli appunti!',
+                                    message: _tr('Link di associazione copiato negli appunti!', 'Pairing link copied to clipboard!'),
                                   );
                                 },
                               ),
                               IconButton(
                                 icon: const Icon(Icons.open_in_browser, size: 20),
-                                tooltip: 'Apri nel browser',
+                                tooltip: _tr('Apri nel browser', 'Open in browser'),
                                 onPressed: () => launchUrl(Uri.parse(_url!)),
                               ),
                             ],
@@ -705,7 +709,7 @@ class _RemoteSectionState extends ConsumerState<RemoteSection> {
                     children: [
                       Icon(Icons.link, size: 18, color: colorScheme.primary),
                       const SizedBox(width: 8),
-                      Text('URL Pubblico: ', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: colorScheme.onSurfaceVariant)),
+                      Text(_tr('URL Pubblico: ', 'Public URL: '), style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: colorScheme.onSurfaceVariant)),
                       Expanded(
                         child: SelectableText(
                           _url!,
@@ -734,24 +738,24 @@ class _RemoteSectionState extends ConsumerState<RemoteSection> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Modalità Predefinita per Nuovi Dispositivi', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
+                  Text(_tr('Modalità Predefinita per Nuovi Dispositivi', 'Default mode for new devices'), style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
                   const SizedBox(height: 6),
                   Text(
-                    'I nuovi dispositivi associati ricevono questa modalità. Puoi modificarla per singolo dispositivo nella lista sottostante.',
+                    _tr('I nuovi dispositivi associati ricevono questa modalità. Puoi modificarla per singolo dispositivo nella lista sottostante.', 'Newly paired devices receive this mode. You can change it for each device in the list below.'),
                     style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
                   ),
                   const SizedBox(height: 14),
                   SegmentedButton<String>(
-                    segments: const [
+                    segments: [
                       ButtonSegment(
                         value: 'view',
-                        label: Text('Visualizzazione (View)'),
-                        icon: Icon(Icons.visibility),
+                        label: Text(_tr('Visualizzazione (View)', 'View')),
+                        icon: const Icon(Icons.visibility),
                       ),
                       ButtonSegment(
                         value: 'control',
-                        label: Text('Controllo (Control)'),
-                        icon: Icon(Icons.settings_remote),
+                        label: Text(_tr('Controllo (Control)', 'Control')),
+                        icon: const Icon(Icons.settings_remote),
                       ),
                     ],
                     selected: {_defaultMode},
@@ -762,8 +766,8 @@ class _RemoteSectionState extends ConsumerState<RemoteSection> {
                   const SizedBox(height: 10),
                   Text(
                     _defaultMode == 'view'
-                        ? 'La modalità View consente di consultare sessioni, log e file in sola lettura, con possibilità di abortire l\'agente in caso di emergenza. Nessun prompt o modifica consentita.'
-                        : 'La modalità Control consente di inviare messaggi, avviare sessioni ed eseguire azioni complete tramite l\'agente.',
+                        ? _tr('La modalità View consente di consultare sessioni, log e file in sola lettura, con possibilità di abortire l\'agente in caso di emergenza. Nessun prompt o modifica consentita.', 'View mode provides read-only access to sessions, logs and files, and can abort the agent in an emergency. Prompts and modifications are not allowed.')
+                        : _tr('La modalità Control consente di inviare messaggi, avviare sessioni ed eseguire azioni complete tramite l\'agente.', 'Control mode allows sending messages, starting sessions and performing full actions through the agent.'),
                     style: TextStyle(fontSize: 11, fontStyle: FontStyle.italic, color: colorScheme.onSurfaceVariant),
                   ),
                 ],
@@ -788,12 +792,12 @@ class _RemoteSectionState extends ConsumerState<RemoteSection> {
                 children: [
                   Row(
                     children: [
-                      Text('Dispositivi Autorizzati (${_devices.length})', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
+                      Text(_tr('Dispositivi Autorizzati (${_devices.length})', 'Authorized devices (${_devices.length})'), style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
                       const Spacer(),
                       if (_devices.isNotEmpty)
                         TextButton.icon(
                           icon: Icon(Icons.delete_forever, size: 16, color: colorScheme.error),
-                          label: Text('Revoca Tutti', style: TextStyle(color: colorScheme.error, fontSize: 12)),
+                          label: Text(_tr('Revoca Tutti', 'Revoke all'), style: TextStyle(color: colorScheme.error, fontSize: 12)),
                           onPressed: _revokeAllDevices,
                         ),
                     ],
@@ -804,21 +808,21 @@ class _RemoteSectionState extends ConsumerState<RemoteSection> {
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: 12),
                       child: Text(
-                        'Nessun dispositivo autorizzato. Inquadra il QR code per associare il tuo smartphone.',
+                        _tr('Nessun dispositivo autorizzato. Inquadra il QR code per associare il tuo smartphone.', 'No authorized devices. Scan the QR code to pair your smartphone.'),
                         style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 13),
                       ),
                     )
                   else
                     ..._devices.map((dev) {
-                      final name = dev['name'] as String? ?? 'Dispositivo Sconosciuto';
+                      final name = dev['name'] as String? ?? _tr('Dispositivo Sconosciuto', 'Unknown device');
                       final deviceId = dev['deviceId'] as String? ?? '';
                       final mode = dev['mode'] as String? ?? 'view';
-                      final ip = dev['remoteIp'] as String? ?? 'Locale';
+                      final ip = dev['remoteIp'] as String? ?? _tr('Locale', 'Local');
                       final lastUsed = dev['lastUsedAt'] as int?;
                       final expiresAt = dev['expiresAt'] as int?;
                       final lastStr = lastUsed != null
                           ? DateTime.fromMillisecondsSinceEpoch(lastUsed).toLocal().toString().split('.')[0]
-                          : 'Mai';
+                          : _tr('Mai', 'Never');
                       final expiresStr = expiresAt != null
                           ? DateTime.fromMillisecondsSinceEpoch(expiresAt).toLocal().toString().split(' ')[0]
                           : '-';
@@ -870,7 +874,7 @@ class _RemoteSectionState extends ConsumerState<RemoteSection> {
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
-                                    'IP: $ip • Ultima attività: $lastStr • Scade: $expiresStr',
+                                    _tr('IP: $ip • Ultima attività: $lastStr • Scade: $expiresStr', 'IP: $ip • Last active: $lastStr • Expires: $expiresStr'),
                                     style: TextStyle(fontSize: 11, color: colorScheme.onSurfaceVariant),
                                   ),
                                 ],
@@ -898,7 +902,7 @@ class _RemoteSectionState extends ConsumerState<RemoteSection> {
                                 visualDensity: VisualDensity.compact,
                               ),
                               onPressed: () => _revokeDevice(deviceId, name),
-                              child: const Text('Revoca', style: TextStyle(fontSize: 12)),
+                              child: Text(_tr('Revoca', 'Revoke'), style: const TextStyle(fontSize: 12)),
                             ),
                           ],
                         ),
@@ -924,7 +928,7 @@ class _RemoteSectionState extends ConsumerState<RemoteSection> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Configurazione Provider Tunnel', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
+                Text(_tr('Configurazione Provider Tunnel', 'Tunnel provider settings'), style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
                 const SizedBox(height: 12),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
@@ -937,18 +941,18 @@ class _RemoteSectionState extends ConsumerState<RemoteSection> {
                     child: DropdownButton<String>(
                       isExpanded: true,
                       value: _tunnelProvider,
-                      items: const [
+                      items: [
                         DropdownMenuItem(
                           value: 'tailscale',
-                          child: Text('Tailscale (Consigliato: Permanente, Privato e Sicuro)'),
+                          child: Text(_tr('Tailscale (Consigliato: Permanente, Privato e Sicuro)', 'Tailscale (Recommended: permanent, private and secure)')),
                         ),
                         DropdownMenuItem(
                           value: 'cloudflared',
-                          child: Text('Cloudflare Quick Tunnel (Temporaneo, nessun account)'),
+                          child: Text(_tr('Cloudflare Quick Tunnel (Temporaneo, nessun account)', 'Cloudflare Quick Tunnel (Temporary, no account)')),
                         ),
                         DropdownMenuItem(
                           value: 'custom',
-                          child: Text('Altro Tunnel Personalizzato / Reverse Proxy'),
+                          child: Text(_tr('Altro Tunnel Personalizzato / Reverse Proxy', 'Other custom tunnel / reverse proxy')),
                         ),
                       ],
                       onChanged: _enabled ? null : (val) => setState(() => _tunnelProvider = val!),
@@ -975,7 +979,7 @@ class _RemoteSectionState extends ConsumerState<RemoteSection> {
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
-                                  'Tailscale non è installato su questo computer',
+                                  _tr('Tailscale non è installato su questo computer', 'Tailscale is not installed on this computer'),
                                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: colorScheme.error),
                                 ),
                               ),
@@ -983,7 +987,7 @@ class _RemoteSectionState extends ConsumerState<RemoteSection> {
                           ),
                           const SizedBox(height: 6),
                           Text(
-                            'Tailscale crea una rete privata sicura Mesh (WireGuard) tra i tuoi dispositivi con certificato HTTPS e nome di dominio fisso permanente.',
+                            _tr('Tailscale crea una rete privata sicura Mesh (WireGuard) tra i tuoi dispositivi con certificato HTTPS e nome di dominio fisso permanente.', 'Tailscale creates a secure private mesh network (WireGuard) between your devices with an HTTPS certificate and a permanent domain name.'),
                             style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant),
                           ),
                           const SizedBox(height: 12),
@@ -998,7 +1002,7 @@ class _RemoteSectionState extends ConsumerState<RemoteSection> {
                                     ),
                                   )
                                 : const Icon(Icons.download, size: 18),
-                            label: Text(_isInstallingTailscale ? 'Avvio installazione...' : 'Installa Tailscale automaticamente'),
+                            label: Text(_isInstallingTailscale ? _tr('Avvio installazione...', 'Starting installation...') : _tr('Installa Tailscale automaticamente', 'Install Tailscale automatically')),
                             onPressed: _isInstallingTailscale ? null : _installTailscale,
                           ),
                         ],
@@ -1016,10 +1020,10 @@ class _RemoteSectionState extends ConsumerState<RemoteSection> {
                         children: [
                           Icon(Icons.info_outline, color: tokens.warning, size: 20),
                           const SizedBox(width: 10),
-                          const Expanded(
+                          Expanded(
                             child: Text(
-                              'Tailscale è installato ma non è connesso. Apri l\'app Tailscale ed effettua il login per attivare la rete.',
-                              style: TextStyle(fontSize: 12),
+                              _tr('Tailscale è installato ma non è connesso. Apri l\'app Tailscale ed effettua il login per attivare la rete.', 'Tailscale is installed but disconnected. Open the Tailscale app and sign in to activate the network.'),
+                              style: const TextStyle(fontSize: 12),
                             ),
                           ),
                         ],
@@ -1042,7 +1046,7 @@ class _RemoteSectionState extends ConsumerState<RemoteSection> {
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
-                                  'Tailscale è attivo e connesso',
+                                  _tr('Tailscale è attivo e connesso', 'Tailscale is running and connected'),
                                   style: TextStyle(
                                     fontWeight: FontWeight.bold,
                                     fontSize: 13,
@@ -1055,13 +1059,13 @@ class _RemoteSectionState extends ConsumerState<RemoteSection> {
                           if (_tailscaleDomain != null) ...[
                             const SizedBox(height: 8),
                             Text(
-                              'Indirizzo permanente: https://$_tailscaleDomain',
+                              _tr('Indirizzo permanente: https://$_tailscaleDomain', 'Permanent address: https://$_tailscaleDomain'),
                               style: TextStyle(fontFamily: 'SourceCodePro', fontSize: 12, fontWeight: FontWeight.bold, color: colorScheme.primary),
                             ),
                           ],
                           const SizedBox(height: 12),
                           Text(
-                            'Personalizza il nome host della macchina:',
+                            _tr('Personalizza il nome host della macchina:', 'Customize this machine’s hostname:'),
                             style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: colorScheme.onSurfaceVariant),
                           ),
                           const SizedBox(height: 6),
@@ -1070,8 +1074,8 @@ class _RemoteSectionState extends ConsumerState<RemoteSection> {
                               Expanded(
                                 child: TextField(
                                   controller: _tailscaleHostnameController,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Nome host Tailscale (es. pi-frame)',
+                                  decoration: InputDecoration(
+                                    labelText: _tr('Nome host Tailscale (es. pi-frame)', 'Tailscale hostname (e.g. pi-frame)'),
                                     border: OutlineInputBorder(),
                                     isDense: true,
                                   ),
@@ -1089,7 +1093,7 @@ class _RemoteSectionState extends ConsumerState<RemoteSection> {
                                           color: tokens.accentContrast,
                                         ),
                                       )
-                                    : const Text('Salva nome'),
+                                    : Text(_tr('Salva nome', 'Save name')),
                               ),
                             ],
                           ),
@@ -1117,7 +1121,7 @@ class _RemoteSectionState extends ConsumerState<RemoteSection> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'cloudflared rilevato e pronto all\'uso',
+                                  _tr('cloudflared rilevato e pronto all\'uso', 'cloudflared detected and ready'),
                                   style: TextStyle(
                                     fontWeight: FontWeight.bold,
                                     fontSize: 13,
@@ -1152,7 +1156,7 @@ class _RemoteSectionState extends ConsumerState<RemoteSection> {
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
-                                  'Eseguibile cloudflared non trovato',
+                                  _tr('Eseguibile cloudflared non trovato', 'cloudflared executable not found'),
                                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: colorScheme.error),
                                 ),
                               ),
@@ -1160,7 +1164,7 @@ class _RemoteSectionState extends ConsumerState<RemoteSection> {
                           ),
                           const SizedBox(height: 6),
                           Text(
-                            'Per utilizzare i Quick Tunnel di Cloudflare è necessario l\'eseguibile ufficiale open-source di Cloudflare.',
+                            _tr('Per utilizzare i Quick Tunnel di Cloudflare è necessario l\'eseguibile ufficiale open-source di Cloudflare.', 'Cloudflare Quick Tunnels require the official open-source Cloudflare executable.'),
                             style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant),
                           ),
                           const SizedBox(height: 12),
@@ -1175,12 +1179,12 @@ class _RemoteSectionState extends ConsumerState<RemoteSection> {
                                     ),
                                   )
                                 : const Icon(Icons.download, size: 18),
-                            label: Text(_isInstallingCloudflared ? 'Download e installazione in corso...' : 'Installa cloudflared automaticamente'),
+                            label: Text(_isInstallingCloudflared ? _tr('Download e installazione in corso...', 'Downloading and installing...') : _tr('Installa cloudflared automaticamente', 'Install cloudflared automatically')),
                             onPressed: _isInstallingCloudflared ? null : _installCloudflared,
                           ),
                           const SizedBox(height: 10),
                           Text(
-                            'Verrà scaricato in ~/.piframe/bin/cloudflared senza richiedere permessi di amministratore o riavvii.',
+                            _tr('Verrà scaricato in ~/.piframe/bin/cloudflared senza richiedere permessi di amministratore o riavvii.', 'It will be downloaded to ~/.piframe/bin/cloudflared without administrator permissions or a restart.'),
                             style: TextStyle(fontSize: 11, fontStyle: FontStyle.italic, color: colorScheme.onSurfaceVariant),
                           ),
                         ],
@@ -1191,7 +1195,7 @@ class _RemoteSectionState extends ConsumerState<RemoteSection> {
                 if (_localPort != null) ...[
                   const SizedBox(height: 10),
                   Text(
-                    'Porta del listener remoto dedicato: $_localPort (127.0.0.1:$_localPort)',
+                    _tr('Porta del listener remoto dedicato: $_localPort (127.0.0.1:$_localPort)', 'Dedicated remote listener port: $_localPort (127.0.0.1:$_localPort)'),
                     style: TextStyle(fontFamily: 'SourceCodePro', fontSize: 12, color: colorScheme.primary),
                   ),
                 ],
@@ -1200,8 +1204,8 @@ class _RemoteSectionState extends ConsumerState<RemoteSection> {
                   const SizedBox(height: 14),
                   TextField(
                     controller: _customUrlController,
-                    decoration: const InputDecoration(
-                      labelText: 'URL Pubblico HTTPS (es. https://my-node.ts.net)',
+                    decoration: InputDecoration(
+                      labelText: _tr('URL Pubblico HTTPS (es. https://my-node.ts.net)', 'Public HTTPS URL (e.g. https://my-node.ts.net)'),
                       border: OutlineInputBorder(),
                       isDense: true,
                     ),
@@ -1209,8 +1213,8 @@ class _RemoteSectionState extends ConsumerState<RemoteSection> {
                   const SizedBox(height: 10),
                   TextField(
                     controller: _customCommandController,
-                    decoration: const InputDecoration(
-                      labelText: 'Comando tunnel (eseguito senza shell, "\$PORT" sostituito con la porta listener)',
+                    decoration: InputDecoration(
+                      labelText: _tr('Comando tunnel (eseguito senza shell, "\$PORT" sostituito con la porta listener)', 'Tunnel command (run without a shell; "\$PORT" is replaced with the listener port)'),
                       border: OutlineInputBorder(),
                       isDense: true,
                     ),
@@ -1233,22 +1237,22 @@ class _RemoteSectionState extends ConsumerState<RemoteSection> {
       case 'running':
         bg = tokens.success.withValues(alpha: 0.2);
         fg = tokens.success;
-        label = 'ATTIVO';
+        label = _tr('ATTIVO', 'ACTIVE');
         break;
       case 'starting':
         bg = tokens.warning.withValues(alpha: 0.2);
         fg = tokens.warning;
-        label = 'AVVIO...';
+        label = _tr('AVVIO...', 'STARTING...');
         break;
       case 'error':
         bg = tokens.danger.withValues(alpha: 0.2);
         fg = tokens.danger;
-        label = 'ERRORE';
+        label = _tr('ERRORE', 'ERROR');
         break;
       default:
         bg = tokens.textMuted.withValues(alpha: 0.1);
         fg = tokens.textMuted;
-        label = 'DISATTIVATO';
+        label = _tr('DISATTIVATO', 'DISABLED');
     }
 
     return Container(

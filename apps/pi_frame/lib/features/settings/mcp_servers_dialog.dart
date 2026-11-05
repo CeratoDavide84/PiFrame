@@ -3,9 +3,12 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 import 'package:pi_frame_theme/pi_frame_theme.dart';
+
+import '../../data/language/language_settings.dart';
 import '../../ui/frame_snack_bar.dart';
 
 class McpServerItem {
@@ -56,7 +59,7 @@ class McpServerItem {
   }
 }
 
-class McpServersDialog extends StatefulWidget {
+class McpServersDialog extends ConsumerStatefulWidget {
   final FrameTokens tokens;
   final String? projectDir;
   final List<McpServerItem>? initialServers;
@@ -86,15 +89,18 @@ class McpServersDialog extends StatefulWidget {
   }
 
   @override
-  State<McpServersDialog> createState() => _McpServersDialogState();
+  ConsumerState<McpServersDialog> createState() => _McpServersDialogState();
 }
 
-class _McpServersDialogState extends State<McpServersDialog> {
+class _McpServersDialogState extends ConsumerState<McpServersDialog> {
   bool _isLoading = true;
   String? _errorMessage;
   List<McpServerItem> _servers = [];
   final Set<String> _togglingServers = {};
   final Set<String> _expandedTools = {};
+
+  String _tr(String it, String en) =>
+      ref.read(appLanguageProvider) == AppLanguage.it ? it : en;
 
   @override
   void initState() {
@@ -111,8 +117,8 @@ class _McpServersDialogState extends State<McpServersDialog> {
     if (kIsWeb) return '';
     final home = Platform.isWindows
         ? (Platform.environment['USERPROFILE'] ??
-            Platform.environment['HOME'] ??
-            '')
+              Platform.environment['HOME'] ??
+              '')
         : (Platform.environment['HOME'] ?? '');
     return p.join(home, '.pi', 'agent', 'mcp.json');
   }
@@ -123,8 +129,10 @@ class _McpServersDialogState extends State<McpServersDialog> {
     if (kIsWeb) {
       setState(() {
         _isLoading = false;
-        _errorMessage =
-            'La configurazione MCP è disponibile solo su desktop.';
+        _errorMessage = _tr(
+          'La configurazione MCP è disponibile solo su desktop.',
+          'MCP configuration is available on desktop only.',
+        );
       });
       return;
     }
@@ -150,9 +158,13 @@ class _McpServersDialogState extends State<McpServersDialog> {
               final name = entry.key.toString();
               final conf = entry.value;
               if (conf is Map) {
-                final isEnabled = conf['enabled'] != false && conf['disabled'] != true;
+                final isEnabled =
+                    conf['enabled'] != false && conf['disabled'] != true;
                 final desc = conf['description']?.toString();
-                final cmd = conf['command']?.toString() ?? conf['url']?.toString() ?? '';
+                final cmd =
+                    conf['command']?.toString() ??
+                    conf['url']?.toString() ??
+                    '';
                 final args = conf['args'] is List
                     ? (conf['args'] as List).map((e) => e.toString()).join(' ')
                     : '';
@@ -189,11 +201,17 @@ class _McpServersDialogState extends State<McpServersDialog> {
                 final name = entry.key.toString();
                 final conf = entry.value;
                 if (conf is Map) {
-                  final isEnabled = conf['enabled'] != false && conf['disabled'] != true;
+                  final isEnabled =
+                      conf['enabled'] != false && conf['disabled'] != true;
                   final desc = conf['description']?.toString();
-                  final cmd = conf['command']?.toString() ?? conf['url']?.toString() ?? '';
+                  final cmd =
+                      conf['command']?.toString() ??
+                      conf['url']?.toString() ??
+                      '';
                   final args = conf['args'] is List
-                      ? (conf['args'] as List).map((e) => e.toString()).join(' ')
+                      ? (conf['args'] as List)
+                            .map((e) => e.toString())
+                            .join(' ')
                       : '';
                   final transport = args.isNotEmpty ? '$cmd $args' : cmd;
 
@@ -203,7 +221,9 @@ class _McpServersDialogState extends State<McpServersDialog> {
                     scope: 'project',
                     sourcePath: projectPath,
                     enabled: isEnabled,
-                    transport: transport.isNotEmpty ? transport : (serversMap[name]?.transport ?? ''),
+                    transport: transport.isNotEmpty
+                        ? transport
+                        : (serversMap[name]?.transport ?? ''),
                     state: isEnabled ? 'unknown' : 'disabled',
                     description: desc ?? serversMap[name]?.description,
                   );
@@ -243,7 +263,9 @@ class _McpServersDialogState extends State<McpServersDialog> {
                   if (name.isEmpty) continue;
 
                   final enabled = item['enabled'] == true;
-                  final state = item['state']?.toString() ?? (enabled ? 'connected' : 'disabled');
+                  final state =
+                      item['state']?.toString() ??
+                      (enabled ? 'connected' : 'disabled');
                   final transport = item['transport']?.toString() ?? '';
                   final source = item['source']?.toString() ?? globalPath;
                   final scope = item['scope']?.toString() ?? 'global';
@@ -262,9 +284,13 @@ class _McpServersDialogState extends State<McpServersDialog> {
                     scope: scope,
                     sourcePath: source,
                     enabled: enabled,
-                    transport: transport.isNotEmpty ? transport : (existing?.transport ?? ''),
+                    transport: transport.isNotEmpty
+                        ? transport
+                        : (existing?.transport ?? ''),
                     state: state,
-                    tools: toolsList.isNotEmpty ? toolsList : (existing?.tools ?? const []),
+                    tools: toolsList.isNotEmpty
+                        ? toolsList
+                        : (existing?.tools ?? const []),
                     description: existing?.description,
                     error: error,
                   );
@@ -287,7 +313,10 @@ class _McpServersDialogState extends State<McpServersDialog> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _errorMessage = 'Impossibile caricare i server MCP: $e';
+          _errorMessage = _tr(
+            'Impossibile caricare i server MCP: $e',
+            'Unable to load MCP servers: $e',
+          );
           _isLoading = false;
         });
       }
@@ -312,7 +341,8 @@ class _McpServersDialogState extends State<McpServersDialog> {
         final content = await file.readAsString();
         final parsed = jsonDecode(content);
         if (parsed is Map) {
-          final mcpServers = (parsed['mcpServers'] as Map?) ?? <String, dynamic>{};
+          final mcpServers =
+              (parsed['mcpServers'] as Map?) ?? <String, dynamic>{};
           if (mcpServers.containsKey(server.name)) {
             final conf = mcpServers[server.name];
             if (conf is Map) {
@@ -323,15 +353,19 @@ class _McpServersDialogState extends State<McpServersDialog> {
             mcpServers[server.name] = <String, dynamic>{'enabled': newEnabled};
           }
           parsed['mcpServers'] = mcpServers;
-          await file.writeAsString(const JsonEncoder.withIndent('  ').convert(parsed));
+          await file.writeAsString(
+            const JsonEncoder.withIndent('  ').convert(parsed),
+          );
         }
       }
     } catch (e) {
-      debugPrint('Error updating server ${server.name} in ${server.sourcePath}: $e');
+      debugPrint(
+        'Error updating server ${server.name} in ${server.sourcePath}: $e',
+      );
       if (mounted) {
         FrameSnackBar.show(
           context,
-          message: 'Errore nel salvataggio: $e',
+          message: _tr('Errore nel salvataggio: $e', 'Save failed: $e'),
         );
       }
     } finally {
@@ -345,6 +379,7 @@ class _McpServersDialogState extends State<McpServersDialog> {
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(appLanguageProvider);
     final tokens = widget.tokens;
     final enabledCount = _servers.where((s) => s.enabled).length;
 
@@ -383,7 +418,10 @@ class _McpServersDialogState extends State<McpServersDialog> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Server MCP Disponibili',
+                          _tr(
+                            'Server MCP disponibili',
+                            'Available MCP servers',
+                          ),
                           style: TextStyle(
                             color: tokens.textPrimary,
                             fontSize: 16,
@@ -392,7 +430,10 @@ class _McpServersDialogState extends State<McpServersDialog> {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          'Configura e attiva o disattiva i server MCP per il coding agent.',
+                          _tr(
+                            'Configura e attiva o disattiva i server MCP per il coding agent.',
+                            'Configure and enable or disable MCP servers for the coding agent.',
+                          ),
                           style: TextStyle(
                             color: tokens.textMuted,
                             fontSize: 12,
@@ -402,12 +443,16 @@ class _McpServersDialogState extends State<McpServersDialog> {
                     ),
                   ),
                   IconButton(
-                    tooltip: 'Aggiorna elenco',
-                    icon: Icon(Icons.refresh, size: 18, color: tokens.textMuted),
+                    tooltip: _tr('Aggiorna elenco', 'Refresh list'),
+                    icon: Icon(
+                      Icons.refresh,
+                      size: 18,
+                      color: tokens.textMuted,
+                    ),
                     onPressed: _isLoading ? null : _loadServers,
                   ),
                   IconButton(
-                    tooltip: 'Chiudi',
+                    tooltip: _tr('Chiudi', 'Close'),
                     icon: Icon(Icons.close, size: 18, color: tokens.textMuted),
                     onPressed: () => Navigator.of(context).pop(),
                   ),
@@ -434,33 +479,43 @@ class _McpServersDialogState extends State<McpServersDialog> {
                             ),
                             const SizedBox(height: 12),
                             Text(
-                              'Caricamento server MCP in corso...',
-                              style: TextStyle(color: tokens.textMuted, fontSize: 12),
+                              _tr(
+                                'Caricamento server MCP in corso...',
+                                'Loading MCP servers...',
+                              ),
+                              style: TextStyle(
+                                color: tokens.textMuted,
+                                fontSize: 12,
+                              ),
                             ),
                           ],
                         ),
                       )
                     : _errorMessage != null
-                        ? Center(
-                            child: Padding(
-                              padding: const EdgeInsets.all(16),
-                              child: Text(
-                                _errorMessage!,
-                                textAlign: TextAlign.center,
-                                style: TextStyle(color: tokens.danger, fontSize: 13),
-                              ),
+                    ? Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Text(
+                            _errorMessage!,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: tokens.danger,
+                              fontSize: 13,
                             ),
-                          )
-                        : _servers.isEmpty
-                            ? _buildEmptyState(tokens)
-                            : ListView.separated(
-                                itemCount: _servers.length,
-                                separatorBuilder: (context, index) => const SizedBox(height: 10),
-                                itemBuilder: (context, index) {
-                                  final server = _servers[index];
-                                  return _buildServerCard(tokens, server);
-                                },
-                              ),
+                          ),
+                        ),
+                      )
+                    : _servers.isEmpty
+                    ? _buildEmptyState(tokens)
+                    : ListView.separated(
+                        itemCount: _servers.length,
+                        separatorBuilder: (context, index) =>
+                            const SizedBox(height: 10),
+                        itemBuilder: (context, index) {
+                          final server = _servers[index];
+                          return _buildServerCard(tokens, server);
+                        },
+                      ),
               ),
 
               const SizedBox(height: 12),
@@ -473,8 +528,11 @@ class _McpServersDialogState extends State<McpServersDialog> {
                 children: [
                   Text(
                     _servers.isEmpty
-                        ? '0 server'
-                        : '$enabledCount su ${_servers.length} server attivi',
+                        ? _tr('0 server', '0 servers')
+                        : _tr(
+                            '$enabledCount su ${_servers.length} server attivi',
+                            '$enabledCount of ${_servers.length} servers enabled',
+                          ),
                     style: TextStyle(
                       color: tokens.textSecondary,
                       fontSize: 12,
@@ -486,13 +544,16 @@ class _McpServersDialogState extends State<McpServersDialog> {
                       backgroundColor: tokens.accent,
                       foregroundColor: tokens.surface,
                       visualDensity: VisualDensity.compact,
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(tokens.radiusSm),
                       ),
                     ),
                     onPressed: () => Navigator.of(context).pop(),
-                    child: const Text('Chiudi'),
+                    child: Text(_tr('Chiudi', 'Close')),
                   ),
                 ],
               ),
@@ -510,10 +571,14 @@ class _McpServersDialogState extends State<McpServersDialog> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.dns_outlined, size: 40, color: tokens.textMuted.withValues(alpha: 0.5)),
+            Icon(
+              Icons.dns_outlined,
+              size: 40,
+              color: tokens.textMuted.withValues(alpha: 0.5),
+            ),
             const SizedBox(height: 12),
             Text(
-              'Nessun server MCP configurato',
+              _tr('Nessun server MCP configurato', 'No MCP servers configured'),
               style: TextStyle(
                 color: tokens.textPrimary,
                 fontSize: 14,
@@ -522,7 +587,10 @@ class _McpServersDialogState extends State<McpServersDialog> {
             ),
             const SizedBox(height: 6),
             Text(
-              'Aggiungi un server con "pi mcp add <nome> -- <comando>"\noppure modifica ~/.pi/agent/mcp.json.',
+              _tr(
+                'Aggiungi un server con "pi mcp add <nome> -- <comando>"\noppure modifica ~/.pi/agent/mcp.json.',
+                'Add a server with "pi mcp add <name> -- <command>"\nor edit ~/.pi/agent/mcp.json.',
+              ),
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: tokens.textMuted,
@@ -543,18 +611,18 @@ class _McpServersDialogState extends State<McpServersDialog> {
     final statusColor = !server.enabled
         ? tokens.textMuted
         : server.state == 'connected'
-            ? tokens.success
-            : server.state == 'failed'
-                ? tokens.danger
-                : tokens.accent;
+        ? tokens.success
+        : server.state == 'failed'
+        ? tokens.danger
+        : tokens.accent;
 
     final statusLabel = !server.enabled
-        ? 'Disabilitato'
+        ? _tr('Disabilitato', 'Disabled')
         : server.state == 'connected'
-            ? 'Connesso'
-            : server.state == 'failed'
-                ? 'Non connesso'
-                : 'Abilitato';
+        ? _tr('Connesso', 'Connected')
+        : server.state == 'failed'
+        ? _tr('Non connesso', 'Disconnected')
+        : _tr('Abilitato', 'Enabled');
 
     return Container(
       decoration: BoxDecoration(
@@ -594,9 +662,14 @@ class _McpServersDialogState extends State<McpServersDialog> {
                           value: server.enabled,
                           activeColor: tokens.accent,
                           checkColor: tokens.surface,
-                          side: BorderSide(color: tokens.borderStrong, width: 1.5),
+                          side: BorderSide(
+                            color: tokens.borderStrong,
+                            width: 1.5,
+                          ),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(tokens.radiusSm),
+                            borderRadius: BorderRadius.circular(
+                              tokens.radiusSm,
+                            ),
                           ),
                           onChanged: (val) {
                             if (val != null) {
@@ -616,7 +689,9 @@ class _McpServersDialogState extends State<McpServersDialog> {
                           server.name,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            color: server.enabled ? tokens.textPrimary : tokens.textMuted,
+                            color: server.enabled
+                                ? tokens.textPrimary
+                                : tokens.textMuted,
                             fontFamily: tokens.monoFontFamily,
                             fontSize: 13,
                             fontWeight: FontWeight.bold,
@@ -627,11 +702,16 @@ class _McpServersDialogState extends State<McpServersDialog> {
 
                       // Status Badge
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
                         decoration: BoxDecoration(
                           color: statusColor.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(tokens.radiusSm),
-                          border: Border.all(color: statusColor.withValues(alpha: 0.4)),
+                          border: Border.all(
+                            color: statusColor.withValues(alpha: 0.4),
+                          ),
                         ),
                         child: Text(
                           statusLabel,
@@ -646,12 +726,19 @@ class _McpServersDialogState extends State<McpServersDialog> {
                       if (server.scope == 'project') ...[
                         const SizedBox(width: 6),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 5,
+                            vertical: 2,
+                          ),
                           decoration: BoxDecoration(
                             color: tokens.syntaxKeyword.withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(tokens.radiusSm),
+                            borderRadius: BorderRadius.circular(
+                              tokens.radiusSm,
+                            ),
                             border: Border.all(
-                              color: tokens.syntaxKeyword.withValues(alpha: 0.3),
+                              color: tokens.syntaxKeyword.withValues(
+                                alpha: 0.3,
+                              ),
                             ),
                           ),
                           child: Text(
@@ -682,11 +769,18 @@ class _McpServersDialogState extends State<McpServersDialog> {
                     },
                     borderRadius: BorderRadius.circular(tokens.radiusSm),
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 4,
+                      ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.build_outlined, size: 12, color: tokens.syntaxFunction),
+                          Icon(
+                            Icons.build_outlined,
+                            size: 12,
+                            color: tokens.syntaxFunction,
+                          ),
                           const SizedBox(width: 4),
                           Text(
                             '${server.tools.length} tool',
@@ -718,7 +812,11 @@ class _McpServersDialogState extends State<McpServersDialog> {
               padding: const EdgeInsets.fromLTRB(44, 0, 12, 6),
               child: Text(
                 server.description!,
-                style: TextStyle(color: tokens.textSecondary, fontSize: 11, height: 1.3),
+                style: TextStyle(
+                  color: tokens.textSecondary,
+                  fontSize: 11,
+                  height: 1.3,
+                ),
               ),
             ),
 
@@ -748,19 +846,25 @@ class _McpServersDialogState extends State<McpServersDialog> {
                       ),
                     ),
                     Tooltip(
-                      message: 'Copia comando',
+                      message: _tr('Copia comando', 'Copy command'),
                       child: InkWell(
                         onTap: () {
-                          Clipboard.setData(ClipboardData(text: server.transport));
+                          Clipboard.setData(
+                            ClipboardData(text: server.transport),
+                          );
                           FrameSnackBar.show(
                             context,
-                            message: 'Comando copiato',
+                            message: _tr('Comando copiato', 'Command copied'),
                             duration: const Duration(seconds: 1),
                           );
                         },
                         child: Padding(
                           padding: const EdgeInsets.only(left: 6),
-                          child: Icon(Icons.copy_outlined, size: 12, color: tokens.textMuted),
+                          child: Icon(
+                            Icons.copy_outlined,
+                            size: 12,
+                            color: tokens.textMuted,
+                          ),
                         ),
                       ),
                     ),
@@ -785,7 +889,10 @@ class _McpServersDialogState extends State<McpServersDialog> {
                 children: [
                   for (final tool in server.tools)
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: tokens.syntaxFunction.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(tokens.radiusSm),

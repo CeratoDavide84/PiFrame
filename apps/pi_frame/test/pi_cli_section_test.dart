@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pi_frame_theme/pi_frame_theme.dart';
 import 'package:pi_frame/features/settings/pi_cli_section.dart';
@@ -12,11 +13,11 @@ void main() {
     const tokens = FrameTokens.dark;
 
     await tester.pumpWidget(
-      const MaterialApp(
+      const ProviderScope(child: MaterialApp(
         home: Scaffold(
           body: PiCliSection(tokens: tokens),
         ),
-      ),
+      )),
     );
     await tester.pumpAndSettle();
 

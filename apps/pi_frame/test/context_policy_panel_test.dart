@@ -176,8 +176,8 @@ void main() {
       );
       await tester.tap(dropdown);
       await tester.pumpAndSettle();
-      expect(find.text('Custom').last, findsOneWidget);
-      await tester.tap(find.text('Custom').last);
+      expect(find.text('Personalizzato').last, findsOneWidget);
+      await tester.tap(find.text('Personalizzato').last);
       await tester.pumpAndSettle();
       expect(session.state.contextWindowOverride, 250000);
       expect(
@@ -195,7 +195,7 @@ void main() {
         find.byKey(const ValueKey('context-window-preset-dropdown')),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Custom').last);
+      await tester.tap(find.text('Personalizzato').last);
       await tester.pumpAndSettle();
       expect(capped.state.contextWindowOverride, 250000);
       final slider = tester.widget<Slider>(
@@ -244,7 +244,7 @@ void main() {
         find.byKey(const ValueKey('context-window-preset-dropdown')),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Custom').last);
+      await tester.tap(find.text('Personalizzato').last);
       await tester.pumpAndSettle();
       expect(session.state.contextWindowOverride, 272000);
       expect(
@@ -275,7 +275,7 @@ void main() {
         find.byKey(const ValueKey('context-window-preset-dropdown')),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Custom').last);
+      await tester.tap(find.text('Personalizzato').last);
       await tester.pumpAndSettle();
       expect(
         tester
@@ -386,7 +386,7 @@ void main() {
       expect(find.text('70656 / 750k token'), findsOneWidget);
       expect(find.text('9.4 %'), findsOneWidget);
       expect(find.textContaining('42,000'), findsNothing);
-      expect(find.text('Custom'), findsOneWidget);
+      expect(find.text('Personalizzato'), findsOneWidget);
       expect(
         find.textContaining('750k token (750000 token esatti)'),
         findsOneWidget,

@@ -82,15 +82,17 @@ void main() {
       ];
 
       await tester.pumpWidget(
-        MaterialApp(
-          theme: ThemeData.dark().copyWith(extensions: const [FrameTokens.dark]),
-          home: Scaffold(
-            body: Builder(
-              builder: (ctx) => ElevatedButton(
-                onPressed: () async {
-                  result = await CopilotFilePicker.show(ctx, files: files);
-                },
-                child: const Text('Open'),
+        ProviderScope(
+          child: MaterialApp(
+            theme: ThemeData.dark().copyWith(extensions: const [FrameTokens.dark]),
+            home: Scaffold(
+              body: Builder(
+                builder: (ctx) => ElevatedButton(
+                  onPressed: () async {
+                    result = await CopilotFilePicker.show(ctx, files: files);
+                  },
+                  child: const Text('Open'),
+                ),
               ),
             ),
           ),
@@ -100,7 +102,7 @@ void main() {
       await tester.tap(find.text('Open'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Aggiungi contesto al chat'), findsOneWidget);
+      expect(find.text('Aggiungi contesto alla chat'), findsOneWidget);
       expect(find.text('3 file trovati'), findsOneWidget);
 
       // Search for app

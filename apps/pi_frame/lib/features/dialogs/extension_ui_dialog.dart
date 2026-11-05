@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pi_frame_theme/pi_frame_theme.dart';
 
 import '../../data/daemon/daemon_providers.dart';
+import '../../data/language/language_settings.dart';
 
 class ExtensionUiDialog extends ConsumerStatefulWidget {
   final String sessionId;
@@ -51,6 +52,9 @@ class _ExtensionUiDialogState extends ConsumerState<ExtensionUiDialog> {
   Timer? _countdownTimer;
   StreamSubscription? _resolutionSubscription;
   bool _isResponding = false;
+
+  String _tr(String it, String en) =>
+      ref.read(appLanguageProvider) == AppLanguage.it ? it : en;
   String? _responseError;
   int _secondsRemaining = 0;
 
@@ -225,7 +229,10 @@ class _ExtensionUiDialogState extends ConsumerState<ExtensionUiDialog> {
       setState(() {
         _isResponding = false;
         _responseError = error is TimeoutException
-            ? 'Nessuna risposta dal daemon. Riprova.'
+            ? _tr(
+                'Nessuna risposta dal daemon. Riprova.',
+                'No response from the daemon. Try again.',
+              )
             : error.toString();
       });
     }
@@ -233,10 +240,12 @@ class _ExtensionUiDialogState extends ConsumerState<ExtensionUiDialog> {
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(appLanguageProvider);
     final tokens = context.tokens;
     final method = widget.request['method']?.toString() ?? 'confirm';
     final title =
-        widget.request['title']?.toString() ?? 'Richiesta di Interazione';
+        widget.request['title']?.toString() ??
+        _tr('Richiesta di interazione', 'Interaction request');
     final message = widget.request['message']?.toString() ?? '';
     final rawPlaceholder = widget.request['placeholder']?.toString() ?? '';
     final placeholder = _isSecretInput
@@ -536,7 +545,7 @@ class _ExtensionUiDialogState extends ConsumerState<ExtensionUiDialog> {
                   : () => _sendResponse(cancelled: true),
               style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
               child: Text(
-                'Annulla',
+                _tr('Annulla', 'Cancel'),
                 style: TextStyle(color: tokens.textSecondary, fontSize: 12),
               ),
             ),
@@ -573,7 +582,9 @@ class _ExtensionUiDialogState extends ConsumerState<ExtensionUiDialog> {
                 ),
               ),
               child: Text(
-                method == 'confirm' ? 'Conferma' : 'Invia',
+                method == 'confirm'
+                    ? _tr('Conferma', 'Confirm')
+                    : _tr('Invia', 'Send'),
                 style: const TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.bold,

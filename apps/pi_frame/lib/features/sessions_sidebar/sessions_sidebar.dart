@@ -5,6 +5,7 @@ import 'package:pi_frame_theme/pi_frame_theme.dart';
 import 'instruction_file_dialog.dart';
 import 'session_actions.dart';
 import '../../data/daemon/daemon_providers.dart';
+import '../../data/language/language_settings.dart';
 import '../../ui/frame_snack_bar.dart';
 import '../../ui/shimmer_border.dart';
 import '../command_palette/command_palette.dart';
@@ -59,6 +60,8 @@ class SessionsSidebar extends ConsumerStatefulWidget {
 }
 
 class _SessionsSidebarState extends ConsumerState<SessionsSidebar> {
+  String _tr(String it, String en) =>
+      ref.read(appLanguageProvider) == AppLanguage.it ? it : en;
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
   String _filterMode = 'all'; // 'all', 'active', 'repo'
@@ -96,7 +99,7 @@ class _SessionsSidebarState extends ConsumerState<SessionsSidebar> {
             side: BorderSide(color: tokens.border, width: 1),
           ),
           title: Text(
-            'Rinomina Sessione',
+            _tr('Rinomina Sessione', 'Rename session'),
             style: TextStyle(
               color: tokens.textPrimary,
               fontSize: 15,
@@ -108,7 +111,7 @@ class _SessionsSidebarState extends ConsumerState<SessionsSidebar> {
             autofocus: true,
             style: TextStyle(color: tokens.textPrimary, fontSize: 13),
             decoration: InputDecoration(
-              hintText: 'Nome sessione...',
+              hintText: _tr('Nome sessione...', 'Session name...'),
               hintStyle: TextStyle(color: tokens.textMuted, fontSize: 13),
               enabledBorder: OutlineInputBorder(
                 borderSide: BorderSide(color: tokens.border),
@@ -125,7 +128,7 @@ class _SessionsSidebarState extends ConsumerState<SessionsSidebar> {
             TextButton(
               style: TextButton.styleFrom(foregroundColor: tokens.textMuted),
               onPressed: () => Navigator.of(ctx).pop(),
-              child: const Text('Annulla'),
+              child: Text(_tr('Annulla', 'Cancel')),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
@@ -133,7 +136,7 @@ class _SessionsSidebarState extends ConsumerState<SessionsSidebar> {
                 foregroundColor: tokens.surface,
               ),
               onPressed: () => Navigator.of(ctx).pop(textController.text.trim()),
-              child: const Text('Salva'),
+              child: Text(_tr('Salva', 'Save')),
             ),
           ],
         ),
@@ -151,14 +154,14 @@ class _SessionsSidebarState extends ConsumerState<SessionsSidebar> {
           if (mounted) {
             FrameSnackBar.show(
               context,
-              message: 'Sessione rinominata in "$newName"',
+              message: _tr('Sessione rinominata in "$newName"', 'Session renamed to "$newName"'),
             );
           }
         } catch (e) {
           if (mounted) {
             FrameSnackBar.show(
               context,
-              message: 'Errore rinomina: $e',
+              message: _tr('Errore rinomina: $e', 'Rename failed: $e'),
               backgroundColor: tokens.danger,
             );
           }
@@ -190,7 +193,7 @@ class _SessionsSidebarState extends ConsumerState<SessionsSidebar> {
         if (mounted) {
           FrameSnackBar.show(
             context,
-            message: 'Sessione duplicata: $newSid',
+            message: _tr('Sessione duplicata: $newSid', 'Session duplicated: $newSid'),
           );
         }
       }
@@ -198,7 +201,7 @@ class _SessionsSidebarState extends ConsumerState<SessionsSidebar> {
       if (mounted) {
         FrameSnackBar.show(
           context,
-          message: 'Errore duplicazione: $e',
+          message: _tr('Errore duplicazione: $e', 'Duplication failed: $e'),
           backgroundColor: tokens.danger,
         );
       }
@@ -207,6 +210,7 @@ class _SessionsSidebarState extends ConsumerState<SessionsSidebar> {
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(appLanguageProvider);
     final tokens = context.tokens;
     final sessionsAsync = ref.watch(sessionListProvider);
     final activeId = ref.watch(activeSessionIdProvider);
@@ -234,7 +238,7 @@ class _SessionsSidebarState extends ConsumerState<SessionsSidebar> {
               children: [
                 Expanded(
                   child: Text(
-                    'Sessioni',
+                    _tr('Sessioni', 'Sessions'),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
@@ -248,7 +252,7 @@ class _SessionsSidebarState extends ConsumerState<SessionsSidebar> {
                 ),
                 IconButton(
                   icon: Icon(Icons.refresh, color: tokens.textMuted, size: 18),
-                  tooltip: 'Aggiorna sessioni',
+                  tooltip: _tr('Aggiorna sessioni', 'Refresh sessions'),
                   onPressed: () {
                     ref.invalidate(sessionListProvider);
                     final active = ref.read(activeSessionIdProvider);
@@ -259,7 +263,7 @@ class _SessionsSidebarState extends ConsumerState<SessionsSidebar> {
                 ),
                 IconButton(
                   icon: Icon(Icons.add, color: tokens.accent, size: 20),
-                  tooltip: 'Nuova Sessione',
+                  tooltip: _tr('Nuova Sessione', 'New session'),
                   onPressed: _creating || ref.watch(pcpClientProvider) == null
                       ? null
                       : () async {
@@ -274,7 +278,7 @@ class _SessionsSidebarState extends ConsumerState<SessionsSidebar> {
                 if (widget.onCollapse != null)
                   IconButton(
                     icon: Icon(Icons.chevron_left, color: tokens.textMuted, size: 20),
-                    tooltip: 'Collassa barra sessioni',
+                    tooltip: _tr('Collassa barra sessioni', 'Collapse sessions sidebar'),
                     onPressed: widget.onCollapse,
                   ),
               ],
@@ -294,7 +298,7 @@ class _SessionsSidebarState extends ConsumerState<SessionsSidebar> {
               style: TextStyle(color: tokens.textPrimary, fontSize: 12),
               decoration: InputDecoration(
                 isDense: true,
-                hintText: 'Cerca sessioni...',
+                hintText: _tr('Cerca sessioni...', 'Search sessions...'),
                 hintStyle: TextStyle(color: tokens.textMuted, fontSize: 12),
                 prefixIcon: Icon(
                   Icons.search,
@@ -354,11 +358,11 @@ class _SessionsSidebarState extends ConsumerState<SessionsSidebar> {
               scrollDirection: Axis.horizontal,
               child: Row(
                 children: [
-                  _buildFilterChip('all', 'Tutte', tokens),
+                  _buildFilterChip('all', _tr('Tutte', 'All'), tokens),
                   const SizedBox(width: 6),
-                  _buildFilterChip('active', 'Gestite', tokens),
+                  _buildFilterChip('active', _tr('Gestite', 'Managed'), tokens),
                   const SizedBox(width: 6),
-                  _buildFilterChip('repo', 'Questo repo', tokens),
+                  _buildFilterChip('repo', _tr('Questo repo', 'This repo'), tokens),
                 ],
               ),
             ),
@@ -418,8 +422,8 @@ class _SessionsSidebarState extends ConsumerState<SessionsSidebar> {
                       padding: const EdgeInsets.all(16.0),
                       child: Text(
                         _searchQuery.isNotEmpty || _filterMode != 'all'
-                            ? 'Nessuna sessione corrisponde ai filtri'
-                            : 'Nessuna sessione trovata',
+                            ? _tr('Nessuna sessione corrisponde ai filtri', 'No sessions match the filters')
+                            : _tr('Nessuna sessione trovata', 'No sessions found'),
                         style: TextStyle(color: tokens.textMuted, fontSize: 12),
                         textAlign: TextAlign.center,
                       ),
@@ -501,7 +505,7 @@ class _SessionsSidebarState extends ConsumerState<SessionsSidebar> {
                             Icon(Icons.push_pin, size: 13, color: tokens.accent),
                             const SizedBox(width: 6),
                             Text(
-                              'FISSATE (${pinnedSessions.length})',
+                              _tr('FISSATE (${pinnedSessions.length})', 'PINNED (${pinnedSessions.length})'),
                               style: TextStyle(
                                 color: tokens.textSecondary,
                                 fontSize: 10.5,
@@ -616,7 +620,7 @@ class _SessionsSidebarState extends ConsumerState<SessionsSidebar> {
                           ),
                         ),
                         subtitle: Text(
-                          folder.isEmpty ? 'Cartella non nota' : folder,
+                          folder.isEmpty ? _tr('Cartella non nota', 'Unknown folder') : folder,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
@@ -638,7 +642,7 @@ class _SessionsSidebarState extends ConsumerState<SessionsSidebar> {
                               ),
                               constraints: const BoxConstraints(minWidth: 20, minHeight: 20),
                               icon: Icon(Icons.add, size: 14, color: tokens.accent),
-                              tooltip: 'Nuova sessione in questa cartella',
+                              tooltip: _tr('Nuova sessione in questa cartella', 'New session in this folder'),
                               onPressed: () async {
                                 setState(() => _expandedFolders.add(folder));
                                 await createSession(context, ref, cwd: folder);
@@ -695,7 +699,7 @@ class _SessionsSidebarState extends ConsumerState<SessionsSidebar> {
                                     const SizedBox(width: 8),
                                     Flexible(
                                       child: Text(
-                                        'Istruzioni repository',
+                                        _tr('Istruzioni repository', 'Repository instructions'),
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
                                         style: TextStyle(
@@ -722,7 +726,7 @@ class _SessionsSidebarState extends ConsumerState<SessionsSidebar> {
                                     const SizedBox(width: 8),
                                     Flexible(
                                       child: Text(
-                                        'Nuova sessione',
+                                        _tr('Nuova sessione', 'New session'),
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
                                         style: TextStyle(
@@ -750,7 +754,7 @@ class _SessionsSidebarState extends ConsumerState<SessionsSidebar> {
                                     const SizedBox(width: 8),
                                     Flexible(
                                       child: Text(
-                                        'Rimuovi repository dal riquadro',
+                                        _tr('Rimuovi repository dal riquadro', 'Remove repository from sidebar'),
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
                                         style: TextStyle(
@@ -844,7 +848,7 @@ class _SessionsSidebarState extends ConsumerState<SessionsSidebar> {
               ),
               error: (err, _) => Center(
                 child: Text(
-                  'Errore: $err',
+                  _tr('Errore: $err', 'Error: $err'),
                   style: TextStyle(color: tokens.danger, fontSize: 12),
                 ),
               ),
@@ -888,9 +892,9 @@ class _SessionsSidebarState extends ConsumerState<SessionsSidebar> {
                           ),
                       ],
                     ),
-                    label: const Text(
-                      'Impostazioni',
-                      style: TextStyle(fontSize: 12),
+                    label: Text(
+                      _tr('Impostazioni', 'Settings'),
+                      style: const TextStyle(fontSize: 12),
                     ),
                     onPressed: () {
                       ref.read(showSettingsProvider.notifier).state = true;
@@ -1047,6 +1051,7 @@ class _SessionTile extends ConsumerWidget {
   List<PopupMenuEntry<String>> _buildMenuItems(
     BuildContext context,
     FrameTokens tokens,
+    bool isItalian,
   ) {
     return [
       PopupMenuItem(
@@ -1064,7 +1069,7 @@ class _SessionTile extends ConsumerWidget {
             const SizedBox(width: 8),
             Flexible(
               child: Text(
-                isPinned ? 'Rimuovi dai fissati' : 'Fissa in cima',
+                isPinned ? (isItalian ? 'Rimuovi dai fissati' : 'Unpin') : (isItalian ? 'Fissa in cima' : 'Pin to top'),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
@@ -1091,7 +1096,7 @@ class _SessionTile extends ConsumerWidget {
             const SizedBox(width: 8),
             Flexible(
               child: Text(
-                'Istruzioni repository',
+                isItalian ? 'Istruzioni repository' : 'Repository instructions',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
@@ -1118,7 +1123,7 @@ class _SessionTile extends ConsumerWidget {
             const SizedBox(width: 8),
             Flexible(
               child: Text(
-                'Rinomina',
+                isItalian ? 'Rinomina' : 'Rename',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
@@ -1145,7 +1150,7 @@ class _SessionTile extends ConsumerWidget {
             const SizedBox(width: 8),
             Flexible(
               child: Text(
-                'Albero rami',
+                isItalian ? 'Albero rami' : 'Branch tree',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
@@ -1172,7 +1177,7 @@ class _SessionTile extends ConsumerWidget {
             const SizedBox(width: 8),
             Flexible(
               child: Text(
-                'Duplica',
+                isItalian ? 'Duplica' : 'Duplicate',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
@@ -1201,7 +1206,7 @@ class _SessionTile extends ConsumerWidget {
               const SizedBox(width: 8),
               Flexible(
                 child: Text(
-                  'Rimuovi repository dal riquadro',
+                  isItalian ? 'Rimuovi repository dal riquadro' : 'Remove repository from sidebar',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
@@ -1229,7 +1234,7 @@ class _SessionTile extends ConsumerWidget {
             const SizedBox(width: 8),
             Flexible(
               child: Text(
-                'Elimina sessione',
+                isItalian ? 'Elimina sessione' : 'Delete session',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
@@ -1269,6 +1274,7 @@ class _SessionTile extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final isItalian = ref.watch(appLanguageProvider) == AppLanguage.it;
     final tokens = context.tokens;
     final id = session['id'] as String? ?? 's';
     final name = session['name'] as String? ?? id;
@@ -1353,7 +1359,7 @@ class _SessionTile extends ConsumerWidget {
         ),
       ),
       trailing: PopupMenuButton<String>(
-        tooltip: 'Azioni sessione',
+        tooltip: isItalian ? 'Azioni sessione' : 'Session actions',
         icon: Icon(
           Icons.more_horiz,
           size: 18,
@@ -1365,7 +1371,7 @@ class _SessionTile extends ConsumerWidget {
           side: BorderSide(color: tokens.border),
         ),
         onSelected: (action) => _handleAction(action, id, name, folder),
-        itemBuilder: (ctx) => _buildMenuItems(ctx, tokens),
+        itemBuilder: (ctx) => _buildMenuItems(ctx, tokens, isItalian),
       ),
       onTap: onTap,
     );
@@ -1401,7 +1407,7 @@ class _SessionTile extends ConsumerWidget {
             pos.dx + 1,
             pos.dy + 1,
           ),
-          items: _buildMenuItems(context, tokens),
+          items: _buildMenuItems(context, tokens, isItalian),
         );
         if (action != null) {
           _handleAction(action, id, name, folder);

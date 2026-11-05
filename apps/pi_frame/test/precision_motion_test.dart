@@ -203,7 +203,9 @@ void main() {
         null,
       ),
     );
-    await tester.pumpWidget(themed(const DesktopCaptionButtons()));
+    await tester.pumpWidget(
+      ProviderScope(child: themed(const DesktopCaptionButtons())),
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('Riduci a icona'));
     await tester.tap(find.byTooltip('Massimizza finestra'));

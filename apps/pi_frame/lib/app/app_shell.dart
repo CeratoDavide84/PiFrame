@@ -906,7 +906,7 @@ class _AppShellState extends ConsumerState<AppShell>
                 visualDensity: VisualDensity.compact,
                 padding: const EdgeInsets.all(4),
                 constraints: const BoxConstraints(),
-                tooltip: 'Espandi pannello ${_paneLabel(pane)}',
+                tooltip: _tr('Espandi pannello ${_paneLabel(pane)}', 'Expand ${_paneLabel(pane)} panel'),
                 icon: Icon(expandIcon, size: 18, color: tokens.accent),
                 onPressed: () => _expandPane(pane),
               ),
@@ -955,7 +955,7 @@ class _AppShellState extends ConsumerState<AppShell>
                 visualDensity: VisualDensity.compact,
                 padding: const EdgeInsets.all(6),
                 constraints: const BoxConstraints(),
-                tooltip: 'Espandi barra sessioni',
+                tooltip: _tr('Espandi barra sessioni', 'Expand sessions sidebar'),
                 icon: Icon(Icons.chevron_right, size: 18, color: tokens.accent),
                 onPressed: () {
                   setState(() => _sidebarCollapsed = false);
@@ -976,7 +976,7 @@ class _AppShellState extends ConsumerState<AppShell>
                   quarterTurns: 3,
                   child: Center(
                     child: Text(
-                      'SESSIONI',
+                      _tr('SESSIONI', 'SESSIONS'),
                       style: TextStyle(
                         color: tokens.textMuted,
                         fontSize: 10,
@@ -1178,7 +1178,7 @@ class _AppShellState extends ConsumerState<AppShell>
             ),
           if (showLayoutMenu)
             PopupMenuButton<WorkspacePane>(
-              tooltip: 'Mostra o nascondi pannelli',
+              tooltip: _tr('Mostra o nascondi pannelli', 'Show or hide panels'),
               onSelected: _togglePane,
               itemBuilder: (context) => [
                 for (final pane in WorkspacePane.values)
@@ -1249,7 +1249,7 @@ class _AppShellState extends ConsumerState<AppShell>
             Icon(Icons.history, size: 16, color: tokens.accent),
             const SizedBox(width: 8),
             Text(
-              'Sessioni recenti',
+              _tr('Sessioni recenti', 'Recent sessions'),
               style: TextStyle(
                 color: tokens.textPrimary,
                 fontSize: 14,
@@ -1297,7 +1297,7 @@ class _AppShellState extends ConsumerState<AppShell>
     final id = (session['id'] ?? '').toString();
     final name = (session['name'] ?? id).toString();
     final folder = _sessionFolder(session);
-    final folderDisplay = folder.isNotEmpty ? folder : 'Nessuna cartella';
+    final folderDisplay = folder.isNotEmpty ? folder : _tr('Nessuna cartella', 'No folder');
 
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
@@ -1401,7 +1401,7 @@ class _AppShellState extends ConsumerState<AppShell>
               PiFrameMark(size: compact ? 48 : 64),
               const SizedBox(height: 32),
               Text(
-                'Nuova\nsessione.',
+                _tr('Nuova\nsessione.', 'New\nsession.'),
                 style: TextStyle(
                   fontFamily: tokens.headingFontFamily,
                   fontSize: compact ? 56 : 84,
@@ -1415,7 +1415,7 @@ class _AppShellState extends ConsumerState<AppShell>
               ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 400),
                 child: Text(
-                  'Scegli una conversazione o inizia a lavorare con Pi. Il lavoro continua anche quando chiudi la finestra.',
+                  _tr('Scegli una conversazione o inizia a lavorare con Pi. Il lavoro continua anche quando chiudi la finestra.', 'Choose a conversation or start working with Pi. Work continues even when you close the window.'),
                   style: TextStyle(
                     color: tokens.textSecondary,
                     fontSize: 14.5,
@@ -1433,7 +1433,7 @@ class _AppShellState extends ConsumerState<AppShell>
                       onPressed: connected && !_creating ? _create : null,
                       icon: const Icon(Icons.add, size: 18),
                       label: Text(
-                        _creating ? 'Creazione...' : 'Nuova sessione',
+                        _creating ? _tr('Creazione...', 'Creating...') : _tr('Nuova sessione', 'New session'),
                       ),
                     ),
                   ),
@@ -1443,14 +1443,14 @@ class _AppShellState extends ConsumerState<AppShell>
                         : _palette,
                     icon: const Icon(Icons.search, size: 18),
                     label: Text(
-                      narrow ? 'Esplora sessioni' : 'Cerca nei comandi',
+                      narrow ? _tr('Esplora sessioni', 'Browse sessions') : _tr('Cerca nei comandi', 'Search commands'),
                     ),
                   ),
                 ],
               ),
               const SizedBox(height: 32),
               Text(
-                'Ctrl / Cmd + K · Comandi',
+                _tr('Ctrl / Cmd + K · Comandi', 'Ctrl / Cmd + K · Commands'),
                 style: TextStyle(color: tokens.textMuted, fontSize: 12),
               ),
             ],

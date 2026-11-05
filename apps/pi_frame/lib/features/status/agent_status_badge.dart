@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pi_frame_theme/pi_frame_theme.dart';
 
+import '../../data/language/language_settings.dart';
 import '../../domain/session/agent_status.dart';
 
-class AgentStatusBadge extends StatelessWidget {
+class AgentStatusBadge extends ConsumerWidget {
   final AgentStatus status;
   final bool onDisplay;
   const AgentStatusBadge({
@@ -13,7 +15,20 @@ class AgentStatusBadge extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isItalian = ref.watch(appLanguageProvider) == AppLanguage.it;
+    final label = isItalian
+        ? status.label
+        : switch (status) {
+            AgentStatus.idle => 'Idle',
+            AgentStatus.working => 'Working',
+            AgentStatus.retrying => 'Retrying...',
+            AgentStatus.compacting => 'Compacting...',
+            AgentStatus.awaitingUser => 'Waiting for input',
+            AgentStatus.settled => 'Completed',
+            AgentStatus.error => 'Error',
+            AgentStatus.workerError => 'Worker stopped',
+          };
     final tokens = context.tokens;
     final foreground = switch (status) {
       AgentStatus.idle || AgentStatus.settled => tokens.success,
@@ -47,7 +62,7 @@ class AgentStatusBadge extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             Text(
-              status.label,
+              label,
               style: TextStyle(
                 color: tokens.displayText,
                 fontSize: 12,
@@ -88,7 +103,7 @@ class AgentStatusBadge extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             Text(
-              status.label,
+              label,
               style: TextStyle(
                 color: tokens.textPrimary,
                 fontSize: 12,

@@ -6,7 +6,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/daemon/daemon_providers.dart';
 import '../../data/daemon/pcp_client.dart';
-import '../../domain/session/agent_status.dart';
 import '../../domain/session/session_state.dart';
 import 'task_notification_card.dart';
 
@@ -254,7 +253,9 @@ class SubagentsNotifier extends StateNotifier<List<SubagentItem>> {
             _findByToolCallId(itemsMap, notification.toolUseId);
         if (existing == null) continue;
         if ((latestLaunch[notification.taskId] ?? latestLaunch[existing.id] ?? -1) > entryIndex ||
-            (terminalResults[notification.taskId]?.$2 ?? -1) > entryIndex) continue;
+            (terminalResults[notification.taskId]?.$2 ?? -1) > entryIndex) {
+          continue;
+        }
         final id = existing.id == existing.toolCallId
             ? notification.taskId
             : existing.id;
@@ -328,7 +329,9 @@ class SubagentsNotifier extends StateNotifier<List<SubagentItem>> {
       final existing = itemsMap[id] ?? linked ?? itemsMap[childSessionId];
       // A response for an earlier run must not overwrite a resumed launch.
       if (existing != null && toolCallId != null && existing.toolCallId != null &&
-          toolCallId != existing.toolCallId) continue;
+          toolCallId != existing.toolCallId) {
+        continue;
+      }
       final name = (raw['unlinked'] == true
           ? raw['name'] ?? id
           : raw['description'] ?? existing?.name ?? raw['name'] ?? id).toString();
@@ -399,7 +402,9 @@ class SubagentsNotifier extends StateNotifier<List<SubagentItem>> {
     }
     if (const {
       'agent', 'subagent', 'delegate', 'spawn_agent', 'run_agent', 'invoke_agent',
-    }.contains(lower)) return true;
+    }.contains(lower)) {
+      return true;
+    }
     final subagentType = tool.args['subagent_type'];
     return subagentType is String && subagentType.toLowerCase() == lower;
   }

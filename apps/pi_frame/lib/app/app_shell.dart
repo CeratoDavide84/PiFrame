@@ -11,6 +11,7 @@ import 'desktop_chrome.dart';
 import '../ui/precision.dart';
 import '../data/daemon/daemon_providers.dart';
 import '../data/daemon/pcp_client.dart';
+import '../data/language/language_settings.dart';
 import '../data/theme/theme_providers.dart';
 import '../features/sessions_sidebar/sessions_sidebar.dart';
 import '../features/sessions_sidebar/session_actions.dart';
@@ -46,6 +47,8 @@ class AppShell extends ConsumerStatefulWidget {
 
 class _AppShellState extends ConsumerState<AppShell>
     with WindowListener, WidgetsBindingObserver {
+  String _tr(String italian, String english) =>
+      ref.read(appLanguageProvider) == AppLanguage.it ? italian : english;
   final _scaffoldKey = GlobalKey<ScaffoldState>();
   bool _closingWindow = false;
   late final bool _handlesNativeClose;
@@ -276,6 +279,7 @@ class _AppShellState extends ConsumerState<AppShell>
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(appLanguageProvider);
     ref.listen<bool>(isReviewingChangesProvider, (prev, next) {
       if (next) {
         _enterReviewMode();
@@ -349,12 +353,12 @@ class _AppShellState extends ConsumerState<AppShell>
                           children: [
                             Expanded(
                               child: Text(
-                                'Area di lavoro',
+                                _tr('Area di lavoro', 'Workspace'),
                                 style: Theme.of(context).textTheme.titleLarge,
                               ),
                             ),
                             IconButton(
-                              tooltip: 'Chiudi workspace',
+                              tooltip: _tr('Chiudi workspace', 'Close workspace'),
                               icon: const Icon(Icons.close),
                               onPressed: () =>
                                   _scaffoldKey.currentState?.closeEndDrawer(),
@@ -402,7 +406,7 @@ class _AppShellState extends ConsumerState<AppShell>
                         if (!showSessionRail)
                           IconButton(
                             visualDensity: VisualDensity.compact,
-                            tooltip: 'Apri sessioni',
+                            tooltip: _tr('Apri sessioni', 'Open sessions'),
                             icon: const Icon(Icons.menu, size: 17),
                             onPressed: () =>
                                 _scaffoldKey.currentState?.openDrawer(),
@@ -433,7 +437,7 @@ class _AppShellState extends ConsumerState<AppShell>
                                     ),
                                     const SizedBox(width: 6),
                                     Text(
-                                      connected ? 'Pi locale' : 'Non connesso',
+                                      connected ? _tr('Pi locale', 'Local Pi') : _tr('Non connesso', 'Disconnected'),
                                       style: TextStyle(
                                         color: tokens.textMuted,
                                         fontSize: 11,
@@ -458,15 +462,15 @@ class _AppShellState extends ConsumerState<AppShell>
                                 foregroundColor: tokens.textSecondary,
                               ),
                               icon: const Icon(Icons.search, size: 15),
-                              label: const Text(
-                                'Comandi',
-                                style: TextStyle(fontSize: 12),
+                              label: Text(
+                                _tr('Comandi', 'Commands'),
+                                style: const TextStyle(fontSize: 12),
                               ),
                             ),
                           ),
                         if (width >= 900 && activeId != null && !settings)
                           PopupMenuButton<WorkspacePane>(
-                            tooltip: 'Mostra o nascondi pannelli',
+                            tooltip: _tr('Mostra o nascondi pannelli', 'Show or hide panels'),
                             icon: const Icon(
                               Icons.view_column_outlined,
                               size: 16,
@@ -501,8 +505,8 @@ class _AppShellState extends ConsumerState<AppShell>
                           ),
                           tooltip:
                               Theme.of(context).brightness == Brightness.light
-                              ? 'Tema scuro'
-                              : 'Tema chiaro',
+                              ? _tr('Tema scuro', 'Dark theme')
+                              : _tr('Tema chiaro', 'Light theme'),
                           icon: Icon(
                             Theme.of(context).brightness == Brightness.light
                                 ? Icons.dark_mode_outlined
@@ -524,7 +528,7 @@ class _AppShellState extends ConsumerState<AppShell>
                             minWidth: 32,
                             minHeight: 32,
                           ),
-                          tooltip: 'Impostazioni',
+                          tooltip: _tr('Impostazioni', 'Settings'),
                           icon: Stack(
                             clipBehavior: Clip.none,
                             children: [
@@ -562,7 +566,7 @@ class _AppShellState extends ConsumerState<AppShell>
                               minWidth: 32,
                               minHeight: 32,
                             ),
-                            tooltip: 'Modello e azioni sessione',
+                            tooltip: _tr('Modello e azioni sessione', 'Model and session actions'),
                             icon: const Icon(Icons.tune, size: 16),
                             onPressed: () =>
                                 _scaffoldKey.currentState?.openEndDrawer(),
@@ -598,8 +602,8 @@ class _AppShellState extends ConsumerState<AppShell>
                           Expanded(
                             child: Text(
                               connection == DaemonConnectionState.reconnecting
-                                  ? 'Riconnessione al daemon in corso...'
-                                  : 'Daemon non raggiungibile. Le sessioni restano gestite da Pi.',
+                                  ? _tr('Riconnessione al daemon in corso...', 'Reconnecting to the daemon...')
+                                  : _tr('Daemon non raggiungibile. Le sessioni restano gestite da Pi.', 'Daemon unavailable. Sessions remain managed by Pi.'),
                               style: TextStyle(
                                 color: tokens.textPrimary,
                                 fontSize: 12,
@@ -612,7 +616,7 @@ class _AppShellState extends ConsumerState<AppShell>
                             ),
                             onPressed: () =>
                                 ref.invalidate(daemonEndpointProvider),
-                            child: const Text('Riprova'),
+                            child: Text(_tr('Riprova', 'Retry')),
                           ),
                         ],
                       ),

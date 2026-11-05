@@ -6,6 +6,7 @@ import 'package:pi_frame_theme/pi_frame_theme.dart';
 
 import '../../data/daemon/daemon_providers.dart';
 import '../../data/daemon/pcp_client.dart';
+import '../../data/language/language_settings.dart';
 import '../../domain/session/agent_status.dart';
 import '../../domain/session/session_state.dart';
 import '../composer/composer_draft.dart';
@@ -33,8 +34,13 @@ final gitUnstagedExpandedProvider = StateProvider.family<bool, String>(
   (ref, sessionId) => false,
 );
 
-String _repositoryLoadError(Object error) {
+String _repositoryLoadError(Object error, AppLanguage language) {
   final message = error.toString();
+  if (message.contains('Session working directory is not inside a Git repository.')) {
+    return language == AppLanguage.it
+        ? 'Impossibile verificare il repository. Controlla che la cartella della sessione sia in un repository Git e che Git sia installato e disponibile nel PATH del daemon. Se hai modificato il PATH, riavvia PiFrame e il daemon quando non ci sono sessioni Pi attive.'
+        : 'Unable to check the repository. Make sure the session folder is inside a Git repository and Git is installed and available on the daemon’s PATH. If you changed PATH, restart PiFrame and the daemon when no Pi sessions are active.';
+  }
   if (message.contains('Unsupported command type: workspace.listFiles')) {
     return 'Daemon obsoleto: esegui `pnpm run build:agentd`, ricostruisci PiFrame e riavvia il daemon solo quando nessun worker Pi è attivo.';
   }
@@ -133,15 +139,17 @@ final repositoryStateProvider =
         return RepositoryController(
           sessionId,
           () => ref.read(pcpClientProvider),
+          () => ref.read(appLanguageProvider),
         );
       },
     );
 
 class RepositoryController extends StateNotifier<RepositoryState> {
-  RepositoryController(this.sessionId, this._readClient)
+  RepositoryController(this.sessionId, this._readClient, [this._readLanguage])
     : super(const RepositoryState());
   final String sessionId;
   final PcpClient? Function() _readClient;
+  final AppLanguage Function()? _readLanguage;
 
   RepositoryState get currentState => state;
 
@@ -178,7 +186,7 @@ class RepositoryController extends StateNotifier<RepositoryState> {
         selectedPath: state.selectedPath,
         buffers: state.buffers,
         manualSavedPaths: state.manualSavedPaths,
-        error: _repositoryLoadError(error),
+        error: _repositoryLoadError(error, _readLanguage?.call() ?? AppLanguage.it),
       );
     }
   }

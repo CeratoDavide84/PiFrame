@@ -1,5 +1,7 @@
 # Installazione, Ciclo di Vita e Disinstallazione di PiFrame
 
+La lingua dell'interfaccia si può scegliere in **Impostazioni → Aspetto** tra italiano e inglese. La scelta si applica anche ai controlli standard Flutter; la traduzione dei testi specifici di PiFrame è ancora parziale.
+
 Questa guida documenta la distribuzione, l'avvio on-demand, la gestione degli aggiornamenti e la procedura di disinstallazione sicura di **PiFrame**.
 
 ---

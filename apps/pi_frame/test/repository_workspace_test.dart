@@ -5,6 +5,7 @@ import 'package:pi_frame_theme/pi_frame_theme.dart';
 
 import 'package:pi_frame/data/daemon/daemon_providers.dart';
 import 'package:pi_frame/data/daemon/pcp_client.dart';
+import 'package:pi_frame/data/language/language_settings.dart';
 import 'package:pi_frame/domain/session/session_state.dart';
 import 'package:pi_frame/features/composer/composer.dart';
 import 'package:pi_frame/features/composer/composer_draft.dart';
@@ -16,6 +17,7 @@ class _FakeWorkspaceClient extends PcpClient {
   String diskContent = 'original\n';
   String diskRevision = 'revision-1';
   bool unsupportedList = false;
+  String? listError;
   String? requestedDiff;
   final gitActions = <Map<String, dynamic>>[];
 
@@ -71,6 +73,7 @@ class _FakeWorkspaceClient extends PcpClient {
 
   @override
   Future<Map<String, dynamic>> listWorkspaceFiles(String sessionId) async {
+    if (listError != null) throw StateError(listError!);
     if (unsupportedList) {
       throw StateError('Unsupported command type: workspace.listFiles');
     }
@@ -117,6 +120,21 @@ class _FakeWorkspaceClient extends PcpClient {
 }
 
 void main() {
+  test('repository check error gives actionable guidance in both languages', () async {
+    final client = _FakeWorkspaceClient()
+      ..listError = 'Session working directory is not inside a Git repository.';
+    final container = ProviderContainer(
+      overrides: [pcpClientProvider.overrideWithValue(client)],
+    );
+    addTearDown(container.dispose);
+    final controller = container.read(repositoryStateProvider('session-a').notifier);
+    await controller.loadFiles();
+    expect(container.read(repositoryStateProvider('session-a')).error, contains('PATH del daemon'));
+    container.read(appLanguageProvider.notifier).setLanguage(AppLanguage.en);
+    await controller.loadFiles();
+    expect(container.read(repositoryStateProvider('session-a')).error, contains('daemon’s PATH'));
+  });
+
   test(
     'stale daemon workspace command shows a safe rebuild and restart hint',
     () async {

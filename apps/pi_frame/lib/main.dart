@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:window_manager/window_manager.dart';
 
 import 'app/desktop_chrome.dart';
@@ -9,6 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'app/router.dart';
 import 'data/theme/theme_providers.dart';
+import 'data/language/language_settings.dart';
 import 'data/notifications/desktop_notification_service.dart';
 import 'data/window/window_state_service.dart';
 import 'ui/startup_assemble_animation.dart';
@@ -59,9 +61,17 @@ class PiFrameApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final themeData = ref.watch(currentThemeDataProvider);
+    final language = ref.watch(appLanguageProvider);
 
     return MaterialApp.router(
       title: 'PiFrame',
+      locale: Locale(language.code),
+      supportedLocales: const [Locale('it'), Locale('en')],
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
       debugShowCheckedModeBanner: false,
       routerConfig: appRouter,
       theme: themeData,

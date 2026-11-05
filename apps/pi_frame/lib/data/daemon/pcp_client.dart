@@ -670,14 +670,13 @@ class PcpClient {
       type: 'session.subagents',
       payload: {},
     );
-    try {
-      final res = await sendCommand(cmd);
-      final list = res['subagents'];
-      if (list is List) {
-        return list.map((e) => Map<String, dynamic>.from(e as Map)).toList();
-      }
-    } catch (_) {}
-    return [];
+    final res = await sendCommand(cmd);
+    final data = res['data'] as Map<String, dynamic>? ?? res;
+    final list = data['subagents'];
+    if (list is! List) {
+      throw const FormatException('Missing subagents in daemon response');
+    }
+    return list.map((e) => Map<String, dynamic>.from(e as Map)).toList();
   }
 
   Future<Map<String, dynamic>> steerSubagent(

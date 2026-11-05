@@ -6,6 +6,28 @@ Questo documento raccoglie diagnosi, cause radice e soluzioni per anomalie note 
 
 ---
 
+## Sottoagenti in background mostrati come completati
+
+**Sintomo:** la card indicava subito «Completato», anche se il sottoagente era ancora in esecuzione o in coda.
+
+**Causa:** il ritorno della chiamata `Agent` e la fine della sessione principale venivano confusi con la fine del sottoagente.
+
+**Correzione:** l'avvio in background resta attivo fino a una notifica o a un risultato terminale. Le risposte lente del daemon non sono più scartate dopo quattro secondi. Se il daemon non risponde mai, i metadati non si aggiornano finché la richiesta non viene risolta. Ricompila e riavvia l'app per applicare la modifica.
+
+---
+
+## Sottoagenti duplicati o con costo non disponibile
+
+**Sintomo:** una chiamata di lettura del risultato o una notifica di completamento appariva come un altro sottoagente. La sessione figlia, mostrata con un nome come `reviewer#...`, poteva avere un costo separato dalla chiamata originale.
+
+**Correzione:** PiFrame collega la chiamata `Agent` alla sessione figlia usando l'identità disponibile e mostra il nome dell'attività, il costo registrato e il modello effettivo. Le notifiche aggiornano un agente noto, senza crearne uno nuovo. I dati non disponibili restano `N/D`; stime e testo arbitrario non diventano costi effettivi. Se un collegamento è ambiguo, la sessione figlia resta visibile come non attribuita, senza una card agente aggiuntiva.
+
+Il costo riportato da Pi e i costi dei sottoagenti attribuiti sono mostrati separatamente: Pi può già includere i secondi nel primo. La somma attribuita è indicata come parziale quando mancano dati; i costi delle sessioni non attribuite restano separati.
+
+Per applicare una modifica al daemon, ricompilalo insieme all'app e riavvia il daemon solo quando non ci sono worker Pi attivi. Una build della sola app non aggiorna un daemon già in esecuzione.
+
+---
+
 ## Errore "$ pi update --all /bin/sh: pi: command not found [codice 127]"
 
 **Sintomo:** eseguendo un comando Pi dalla sezione *Impostazioni → Pi CLI* (ad es. `pi update --all`) o avviando l'installazione automatica su macOS, il processo terminava immediatamente con l'errore:
@@ -509,3 +531,59 @@ I pacchetti Debian installati richiedono anche la dipendenza runtime `libnotify4
 2. **Minimizzazione predefinita all'apertura e al cambio di sessione**:
    - Tracciato l'ID di sessione attivo (`_trackedSessionId`); all'apertura iniziale o al cambio sessione (`didUpdateWidget`), `_activeBookTab` viene impostato di default a `_ActiveBookTab.none`.
    - I contatori di task e subagenti attivi vengono sincronizzati con i valori correnti della sessione al caricamento senza innescare auto-espansione, garantendo che le card rimangano normalmente minimizzate lasciando visibile l'intera chat con le pill compatte nella barra superiore.
+
+
+---
+
+## 8. Generazione Installer Windows: Errore Blocco File `node.exe` o `PiFrame.exe` (`IOException` / File in Uso)
+
+### Sintomi
+Durante lo step `[4/4] Staging runtime assets & compiling Inno Setup installer...` eseguendo `pnpm run package:windows` (o richiamando `package-windows-installer.ps1`), la procedura si interrompe con l'errore:
+```text
+Copy-Item : Il processo non può accedere al file '...\apps\pi_frame\build\windows\x64\runner\Release\node.exe' perché è in uso da un altro processo.
+In ...\tools\scripts\package-windows-installer.ps1
++ Copy-Item $nodePath (Join-Path $bundle 'node.exe') -Force
+    + CategoryInfo          : NotSpecified: (:) [Copy-Item], IOException
+    + FullyQualifiedErrorId : System.IO.IOException,Microsoft.PowerShell.Commands.CopyItemCommand
+```
+
+### Causa Radice
+Se `PiFrame.exe` è stato avviato in precedenza dalla cartella di release o durante i test locali, l'app avvia in background il daemon `pi-agentd` sfruttando l'eseguibile `node.exe` presente nella directory `apps/pi_frame/build/windows/x64/runner/Release/`.
+Su Windows, il kernel blocca la scrittura e la sovrascrittura di qualsiasi file `.exe` associato a un processo attivo. Se l'istanza del daemon `node.exe` o l'app `PiFrame.exe` restano attive in background, `Copy-Item` non può sovrascrivere il file. Inoltre, le sessioni locali con WebView2 generavano decine di megabyte di cache temporanea nella cartella `PiFrame.exe.WebView2`, che venivano erroneamente incluse nell'archivio Inno Setup.
+
+### Risoluzione Implementata
+1. **Terminazione automatica dei processi obsoleti**: [**`tools/scripts/package-windows-installer.ps1`**](file:///c:/Personale/Repos/PiFrame/PiFrame/tools/scripts/package-windows-installer.ps1) individua ed arresta automaticamente all'avvio dello staging i processi `node` o `PiFrame` attivi all'interno della directory di release (`$bundle`).
+2. **Retry e tolleranza file identici**: introdotta una logica di retry progressivo; se il file `node.exe` è identico per dimensione all'eseguibile presente nel sistema, la compilazione prosegue segnalando un avviso senza interrompere la generazione del pacchetto.
+3. **Pulizia ed esclusione cache WebView2**: `package-windows-installer.ps1` rimuove `PiFrame.exe.WebView2` prima del packaging e [**`packaging/windows/PiFrame.iss`**](file:///c:/Personale/Repos/PiFrame/PiFrame/packaging/windows/PiFrame.iss) esclude esplicitamente la cartella temporanea (`Excludes: "*.WebView2\*,*.WebView2"`), riducendo notevolmente il peso dell'eseguibile finale.
+4. **Comando rapido di ri-impacchettamento**: se la compilazione Flutter è già stata eseguita con successo, è possibile generare immediatamente l'installer senza ricompilare Flutter eseguendo:
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File tools/scripts/package-windows-installer.ps1 -SkipBuild
+   ```
+
+
+---
+
+## 9. Windows: Errore all'Avvio "MSVCP140.dll was not found" su Installazioni Pulite
+
+### Sintomi
+Avviando PiFrame su un'installazione nuova/pulita di Windows 10 o Windows 11 (o all'interno di una macchina virtuale pulita), l'applicazione non si avvia e viene visualizzato il messaggio di sistema:
+```text
+The code execution cannot proceed because MSVCP140.dll was not found. Reinstalling the program may fix this problem.
+```
+Talvolta accompagnato da errori analoghi per `VCRUNTIME140.dll` o `VCRUNTIME140_1.dll`.
+
+### Causa Radice
+Le applicazioni desktop Flutter per Windows e i relativi plugin C++ sono compilati con MSVC (Microsoft Visual Studio C++) e collegano dinamicamente la libreria standard C/C++ (`msvcp140.dll` e `vcruntime140.dll`).
+Nelle installazioni pulite di Windows (a differenza delle macchine degli sviluppatori dove è presente Visual Studio), il pacchetto **Microsoft Visual C++ 2015–2022 Redistributable (x64)** non è preinstallato per impostazione predefinita dal sistema operativo.
+
+### Risoluzione
+1. **Risoluzione immediata sulla macchina / VM di destinazione**:
+   Installa il runtime ufficiale Microsoft Visual C++ 2015-2022 (x64):
+   - Tramite `winget`:
+     ```powershell
+     winget install Microsoft.VCRedist.2015+.x64
+     ```
+   - Oppure scaricando l'eseguibile ufficiale da Microsoft:
+     [https://aka.ms/vs/17/release/vc_redist.x64.exe](https://aka.ms/vs/17/release/vc_redist.x64.exe)
+2. **Risoluzione integrata nel pacchetto (App-Local Deployment)**:
+   Lo script [**`tools/scripts/package-windows-installer.ps1`**](file:///c:/Personale/Repos/PiFrame/PiFrame/tools/scripts/package-windows-installer.ps1) ora include automaticamente le DLL del runtime CRT (`msvcp140.dll`, `vcruntime140.dll`, `vcruntime140_1.dll`, ecc.) direttamente nella directory di release accanto a `PiFrame.exe`. In questo modo, l'installer generato è autosufficiente al 100% e funziona immediatamente anche offline e su ambienti Windows completamente vergini senza richiedere installazioni esterne.

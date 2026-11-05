@@ -15,7 +15,6 @@ class TaskNotificationData {
   final int? contextPercent;
   final int? durationMs;
   final String? fullTranscriptPath;
-  final double? cost;
 
   const TaskNotificationData({
     required this.taskId,
@@ -29,7 +28,6 @@ class TaskNotificationData {
     this.contextPercent,
     this.durationMs,
     this.fullTranscriptPath,
-    this.cost,
   });
 
   static TaskNotificationData? tryParse(String raw) {
@@ -89,17 +87,6 @@ class TaskNotificationData {
       transcriptPath = outputFile;
     }
 
-    // Extract cost if present in usage or notification text
-    double? cost;
-    final costMatch = RegExp(r'<estimated_cost_usd>([\s\S]*?)</estimated_cost_usd>', caseSensitive: false).firstMatch(usageXml) ??
-        RegExp(r'<cost>([\s\S]*?)</cost>', caseSensitive: false).firstMatch(usageXml) ??
-        RegExp(r'<cost_usd>([\s\S]*?)</cost_usd>', caseSensitive: false).firstMatch(usageXml) ??
-        RegExp(r'(?:cost|cost_usd)\s*[:=]\s*\$?([0-9.]+)', caseSensitive: false).firstMatch(raw) ??
-        RegExp(r'Cost:\s*\$?([0-9.]+)', caseSensitive: false).firstMatch(raw);
-    if (costMatch != null && costMatch.group(1) != null) {
-      cost = double.tryParse(costMatch.group(1)!.trim());
-    }
-
     return TaskNotificationData(
       taskId: taskId.isNotEmpty ? taskId : 'task',
       toolUseId: toolUseId.isNotEmpty ? toolUseId : null,
@@ -112,7 +99,6 @@ class TaskNotificationData {
       contextPercent: contextPercent,
       durationMs: durationMs,
       fullTranscriptPath: transcriptPath,
-      cost: cost,
     );
   }
 }

@@ -82,7 +82,7 @@ void main() {
     'dialog': true,
   };
 
-  testWidgets('Type something opens free text and submits the entered answer', (
+  testWidgets('numbered Type something opens inline and submits once', (
     tester,
   ) async {
     final client = _Client();
@@ -90,32 +90,221 @@ void main() {
       'requestId': 'custom-answer',
       'method': 'select',
       'title': 'Choose an option',
-      'options': ['Type something'],
+      'options': ['1. Yes — Proceed', '2. No — Stop', '3. Type something.'],
       'dialog': true,
     });
 
-    await tester.tap(find.text('Type something'));
+    await tester.tap(find.text('3. Type something.'));
     await tester.pump();
 
-    final answerField = find.byKey(const ValueKey('extension-ui-custom-answer'));
+    final answerField = find.byKey(
+      const ValueKey('extension-ui-custom-answer'),
+    );
     expect(answerField, findsOneWidget);
     expect(tester.widget<TextField>(answerField).focusNode!.hasFocus, isTrue);
+    expect(find.text('3. Type something.'), findsNothing);
+    expect(find.text('1. Yes — Proceed'), findsOneWidget);
+    expect(find.text('2. No — Stop'), findsOneWidget);
     final send = find.widgetWithText(ElevatedButton, 'Invia');
     expect(tester.widget<ElevatedButton>(send).onPressed, isNull);
     expect(client.responses, isEmpty);
 
     await tester.enterText(answerField, 'Use the other approach');
     await tester.pump();
-    expect(
-      tester.widget<TextField>(answerField).controller!.text,
-      'Use the other approach',
-    );
-    expect(tester.widget<ElevatedButton>(send).onPressed, isNotNull);
-    await tester.ensureVisible(send);
     await tester.tap(send);
     await tester.pumpAndSettle();
-
     expect(client.responses, ['Use the other approach']);
+  });
+
+  testWidgets('switching directly to another option preserves custom draft', (
+    tester,
+  ) async {
+    final client = _Client();
+    await mount(tester, client, {
+      'requestId': 'switch-answer',
+      'method': 'select',
+      'title': 'Choose an option',
+      'options': ['1. Yes — Proceed', '2. No — Stop', '3. Type something.'],
+      'dialog': true,
+    });
+
+    await tester.tap(find.text('3. Type something.'));
+    await tester.pump();
+    final answerField = find.byKey(
+      const ValueKey('extension-ui-custom-answer'),
+    );
+    await tester.enterText(answerField, 'Custom draft');
+    await tester.tap(find.text('2. No — Stop'));
+    await tester.pump();
+    expect(answerField, findsNothing);
+    expect(find.text('3. Type something.'), findsOneWidget);
+    await tester.tap(find.text('3. Type something.'));
+    await tester.pump();
+    expect(
+      tester.widget<TextField>(answerField).controller!.text,
+      'Custom draft',
+    );
+    await tester.tap(find.text('2. No — Stop'));
+    await tester.pump();
+    await tester.tap(find.widgetWithText(ElevatedButton, 'Invia'));
+    await tester.pumpAndSettle();
+    expect(client.responses, ['2. No — Stop']);
+  });
+
+  testWidgets('custom radio button opens the inline field', (tester) async {
+    final client = _Client();
+    await mount(tester, client, {
+      'requestId': 'custom-radio',
+      'method': 'select',
+      'options': ['1. Yes — Proceed', '2. Type something.'],
+      'dialog': true,
+    });
+
+    final row = find.ancestor(
+      of: find.text('2. Type something.'),
+      matching: find.byType(InkWell),
+    );
+    await tester.tap(
+      find.descendant(
+        of: row,
+        matching: find.byIcon(Icons.radio_button_unchecked),
+      ),
+    );
+    await tester.pump();
+    expect(
+      find.byKey(const ValueKey('extension-ui-custom-answer')),
+      findsOneWidget,
+    );
+    expect(client.responses, isEmpty);
+  });
+
+  testWidgets(
+    'trailing space does not show a warning or require a second input',
+    (tester) async {
+      final client = _Client();
+      await mount(tester, client, {
+        'requestId': 'custom-trailing-space',
+        'method': 'select',
+        'options': ['1. Yes — Proceed', '2. Type something.'],
+        'dialog': true,
+      });
+
+      await tester.tap(find.text('2. Type something.'));
+      await tester.pump();
+      final field = find.byKey(const ValueKey('extension-ui-custom-answer'));
+      await tester.enterText(field, 'Custom');
+      await tester.pump();
+      final initialSize = tester.getSize(find.byType(ExtensionUiDialog));
+      await tester.enterText(field, 'Custom ');
+      await tester.pump();
+      expect(tester.getSize(find.byType(ExtensionUiDialog)), initialSize);
+      expect(
+        find.textContaining('richiederà di inserirla di nuovo'),
+        findsNothing,
+      );
+      await tester.enterText(field, 'Custom answer ');
+      await tester.pump();
+      expect(tester.getSize(find.byType(ExtensionUiDialog)), initialSize);
+      await tester.tap(find.widgetWithText(ElevatedButton, 'Invia'));
+      await tester.pumpAndSettle();
+      expect(client.responses, ['Custom answer ']);
+    },
+  );
+
+  testWidgets('ambiguous custom text follows the RPC input path', (
+    tester,
+  ) async {
+    final client = _Client();
+    await mount(tester, client, {
+      'requestId': 'ambiguous-answer',
+      'method': 'select',
+      'options': ['1. Yes — Proceed', '2. Type something.'],
+      'dialog': true,
+    });
+
+    await tester.tap(find.text('2. Type something.'));
+    await tester.pump();
+    await tester.enterText(
+      find.byKey(const ValueKey('extension-ui-custom-answer')),
+      '1',
+    );
+    await tester.pump();
+    expect(
+      find.textContaining('richiederà di inserirla di nuovo'),
+      findsNothing,
+    );
+    await tester.tap(find.widgetWithText(ElevatedButton, 'Invia'));
+    await tester.pumpAndSettle();
+    expect(client.responses, ['2. Type something.']);
+  });
+
+  testWidgets('custom option label follows the RPC input path', (tester) async {
+    final client = _Client();
+    await mount(tester, client, {
+      'requestId': 'ambiguous-label',
+      'method': 'select',
+      'options': ['1. Yes — Proceed', '2. Type something.'],
+      'dialog': true,
+    });
+
+    await tester.tap(find.text('2. Type something.'));
+    await tester.pump();
+    await tester.enterText(
+      find.byKey(const ValueKey('extension-ui-custom-answer')),
+      'Yes',
+    );
+    await tester.pump();
+    await tester.tap(find.widgetWithText(ElevatedButton, 'Invia'));
+    await tester.pumpAndSettle();
+    expect(client.responses, ['2. Type something.']);
+  });
+
+  testWidgets('custom label containing a dash follows the RPC input path', (
+    tester,
+  ) async {
+    final client = _Client();
+    await mount(tester, client, {
+      'requestId': 'ambiguous-dash-label',
+      'method': 'select',
+      'options': ['1. Yes — maybe — Proceed', '2. Type something.'],
+      'dialog': true,
+    });
+
+    await tester.tap(find.text('2. Type something.'));
+    await tester.pump();
+    await tester.enterText(
+      find.byKey(const ValueKey('extension-ui-custom-answer')),
+      'Yes — maybe',
+    );
+    await tester.pump();
+    await tester.tap(find.widgetWithText(ElevatedButton, 'Invia'));
+    await tester.pumpAndSettle();
+    expect(client.responses, ['2. Type something.']);
+  });
+
+  testWidgets('non-option number is submitted as custom text', (tester) async {
+    final client = _Client();
+    await mount(tester, client, {
+      'requestId': 'unambiguous-number',
+      'method': 'select',
+      'options': ['1. Yes — Proceed', '2. Type something.'],
+      'dialog': true,
+    });
+
+    await tester.tap(find.text('2. Type something.'));
+    await tester.pump();
+    await tester.enterText(
+      find.byKey(const ValueKey('extension-ui-custom-answer')),
+      '999',
+    );
+    await tester.pump();
+    expect(
+      find.textContaining('richiederà di inserirla di nuovo'),
+      findsNothing,
+    );
+    await tester.tap(find.widgetWithText(ElevatedButton, 'Invia'));
+    await tester.pumpAndSettle();
+    expect(client.responses, ['999']);
   });
 
   testWidgets('Type something is not submitted as the default option', (

@@ -54,7 +54,7 @@ Scarica l'installer più recente dalla [pagina GitHub Releases](https://github.c
 ### Windows
 1. Avvia `PiFrame-Setup-…-windows-x64.exe`.
 2. L'installer aggiunge collegamenti nel menu Start; icona desktop è facoltativa.
-3. PiFrame include e avvia `pi-agentd` con Node incluso. Installer non firmato può mostrare l'avviso SmartScreen.
+3. PiFrame include e avvia `pi-agentd` con Node integrato e i runtime Microsoft Visual C++ CRT (`msvcp140.dll`, `vcruntime140.dll`, ecc.) in modalità app-local per funzionare anche su installazioni pulite di Windows. Installer non firmato può mostrare l'avviso SmartScreen.
 
 > [!TIP]
 > **Finestra bianca o rendering bloccato?** In presenza di driver di schermi virtuali (es. `USB Mobile Monitor`, `IddSampleDriver`) o configurazioni multi-GPU, consulta la guida [**docs/troubleshooting.md**](troubleshooting.md) per le istruzioni di risoluzione rapida.

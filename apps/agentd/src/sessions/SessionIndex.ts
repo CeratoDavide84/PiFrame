@@ -20,6 +20,13 @@ function messageText(message: any): string {
   return text;
 }
 
+function parseCost(value: unknown): number | undefined {
+  const raw = typeof value === 'object' && value !== null
+    ? (value as any).total ?? (value as any).amount
+    : value;
+  return typeof raw === 'number' && Number.isFinite(raw) && raw >= 0 ? raw : undefined;
+}
+
 export interface SessionSummary {
   id: string;
   name?: string;
@@ -715,15 +722,29 @@ export class SessionIndex {
     output: string;
     status: string;
     description?: string;
+    toolCallId?: string;
+    sessionId?: string;
+    unlinked?: boolean;
   }>> {
     const { sessions: all } = await this.scanFast();
-    const parentBasename = parentSessionFile ? path.basename(parentSessionFile) : undefined;
-    const children = all.filter((s) => {
-      if (!s.parentSession) return false;
-      return s.parentSession.includes(parentSessionId) || (parentBasename ? s.parentSession.includes(parentBasename) : false);
-    });
+    const resolvedParent = parentSessionFile || all.find((session) =>
+      session.id === parentSessionId ||
+      path.basename(session.sessionFile) === parentSessionId ||
+      path.basename(session.sessionFile, path.extname(session.sessionFile)) === parentSessionId
+    )?.sessionFile;
+    const isChildOfParent = (child: SessionSummary): boolean => {
+      const parent = child.parentSession;
+      if (!parent) return false;
+      if (parent === parentSessionId) return true;
+      if (!resolvedParent) return false;
+      const parentPath = path.isAbsolute(parent)
+        ? parent
+        : path.resolve(path.dirname(child.sessionFile), parent);
+      return path.resolve(parentPath) === path.resolve(resolvedParent);
+    };
+    const children = all.filter(isChildOfParent);
 
-    const result: Array<{
+    type Subagent = {
       id: string;
       name: string;
       model?: string;
@@ -731,13 +752,75 @@ export class SessionIndex {
       output: string;
       status: string;
       description?: string;
-    }> = [];
+      toolCallId?: string;
+      sessionId?: string;
+      unlinked?: boolean;
+    };
+    const agentResults = new Map<string, Subagent>();
+    if (resolvedParent && fs.existsSync(resolvedParent)) {
+      try {
+        const lines = readline.createInterface({
+          input: fs.createReadStream(resolvedParent, { encoding: 'utf8' }),
+          crlfDelay: Infinity,
+        });
+        for await (const line of lines) {
+          try {
+            const entry = JSON.parse(line);
+            const message = entry.message || entry;
+            if (message.role === 'user' ||
+                (entry.type === 'custom_message' && entry.customType === 'subagent-notification')) {
+              const text = messageText(message);
+              const notification = /<task-notification>([\s\S]*?)<\/task-notification>/.exec(text)?.[1];
+              if (notification) {
+                const id = /<task-id>([^<]+)<\/task-id>/.exec(notification)?.[1]?.trim();
+                const status = /<status>([^<]+)<\/status>/.exec(notification)?.[1]?.trim().toLowerCase();
+                const toolCallId = /<tool-use-id>([^<]+)<\/tool-use-id>/.exec(notification)?.[1]?.trim();
+                const byToolCall = toolCallId
+                  ? [...agentResults.values()].filter((item) => item.toolCallId === toolCallId)
+                  : [];
+                const agent = (id ? agentResults.get(id) : undefined) ??
+                  (byToolCall.length === 1 ? byToolCall[0] : undefined);
+                if (agent && status) {
+                  agent.status = /error|fail/.test(status) ? 'error' :
+                    /stop|cancel/.test(status) ? 'stopped' :
+                    /wrapped|steered/.test(status) ? 'steered' : 'completed';
+                }
+              }
+            }
+            const details = message.details || entry.details;
+            if (message.role !== 'toolResult' || message.toolName !== 'Agent' || typeof details?.agentId !== 'string') continue;
+            const previous = agentResults.get(details.agentId);
+            const result: Subagent = {
+              id: details.agentId,
+              name: details.description || details.subagentType || previous?.name || details.agentId,
+              output: typeof details.output === 'string' ? details.output : previous?.output || '',
+              status: details.status === 'background' ? 'running' :
+                typeof details.status === 'string' ? details.status : previous?.status || 'completed',
+              description: typeof details.description === 'string' ? details.description : previous?.description,
+              toolCallId: typeof message.toolCallId === 'string' ? message.toolCallId :
+                typeof entry.toolCallId === 'string' ? entry.toolCallId : previous?.toolCallId,
+            };
+            agentResults.set(details.agentId, result);
+          } catch { /* Active session files can end with an incomplete line. */ }
+        }
+      } catch { /* Parent details are optional; persisted child sessions still work. */ }
+    }
 
+    const childData = new Map<string, {
+      child: SessionSummary;
+      output: string;
+      lastMessagePreview?: string;
+      model?: string;
+      cost?: number;
+      agentPrefix?: string;
+    }>();
     for (const child of children) {
       let output = '';
       let lastMessagePreview = child.lastMessagePreview;
-      let model: string | undefined;
+      let modelChange: string | undefined;
+      let messageModel: string | undefined;
       let cost: number | undefined;
+      let agentPrefix: string | undefined;
       try {
         if (child.sessionFile && fs.existsSync(child.sessionFile)) {
           const lines = readline.createInterface({
@@ -747,21 +830,18 @@ export class SessionIndex {
           for await (const line of lines) {
             try {
               const entry = JSON.parse(line);
-              if (entry.type === 'model_change' && entry.modelId) {
-                model = entry.modelId;
+              if (entry.type === 'model_change' && entry.modelId) modelChange = entry.modelId;
+              if (entry.type === 'session_info' && typeof entry.name === 'string') {
+                const suffix = entry.name.slice(entry.name.lastIndexOf('#') + 1);
+                if (entry.name.includes('#') && suffix) agentPrefix = suffix;
               }
-              const usage = entry.usage ?? entry.message?.usage;
-              if (usage?.cost !== undefined) {
-                const rawCost = typeof usage.cost === 'object' && usage.cost !== null
-                  ? (usage.cost.total ?? usage.cost.amount)
-                  : usage.cost;
-                const numCost = Number(rawCost);
-                if (Number.isFinite(numCost)) {
-                  cost = (cost ?? 0) + numCost;
-                }
-              }
+              const costValue = entry.usage?.cost !== undefined ? entry.usage.cost : entry.message?.usage?.cost;
+              const turnCost = parseCost(costValue);
+              if (turnCost !== undefined) cost = (cost ?? 0) + turnCost;
               if (entry.type === 'message' || entry.role) {
                 const msg = entry.message || entry;
+                if (typeof msg.model === 'string') messageModel = msg.model;
+                else if (typeof entry.model === 'string') messageModel = entry.model;
                 if (msg.role !== 'system') {
                   const text = messageText(msg);
                   if (text) lastMessagePreview = text.slice(0, 100);
@@ -781,18 +861,51 @@ export class SessionIndex {
           }
         }
       } catch {}
-
-      result.push({
-        id: child.id,
-        name: child.name || child.id,
-        model,
-        cost,
-        output: output.trim() || lastMessagePreview || '',
-        status: child.isActive ? 'running' : 'completed',
-        description: lastMessagePreview
+      childData.set(child.sessionFile, {
+        child, output: output.trim(), lastMessagePreview,
+        model: messageModel || modelChange, cost, agentPrefix
       });
     }
 
+    const childMatches = new Map<string, Subagent>();
+    for (const [file, data] of childData) {
+      if (!data.agentPrefix) continue;
+      const matches = [...agentResults.values()].filter((result) => result.id.startsWith(data.agentPrefix!));
+      const samePrefixChildren = [...childData.values()].filter((candidate) => candidate.agentPrefix === data.agentPrefix);
+      if (matches.length === 1 && samePrefixChildren.length === 1) {
+        childMatches.set(file, matches[0]);
+      }
+    }
+
+    const result: Subagent[] = [...agentResults.values()];
+    for (const [file, data] of childData) {
+      const { child, output, lastMessagePreview, model, cost } = data;
+      const agent = childMatches.get(file);
+      if (agent) {
+        const index = result.findIndex((item) => item.id === agent.id);
+        result[index] = {
+          ...agent,
+          sessionId: child.id,
+          model,
+          cost,
+          output: output || lastMessagePreview || agent.output,
+          status: child.isActive ? 'running' : agent.status,
+          description: agent.description || lastMessagePreview,
+        };
+        continue;
+      }
+      // Keep ambiguous or legacy child sessions visible without claiming an Agent identity.
+      result.push({
+        id: child.id,
+        unlinked: true,
+        name: child.name || child.id,
+        model,
+        cost,
+        output: output || lastMessagePreview || '',
+        status: child.isActive ? 'running' : 'completed',
+        description: lastMessagePreview,
+      });
+    }
     return result;
   }
 
@@ -810,7 +923,7 @@ export class SessionIndex {
     let outputTokens = 0;
     let hasTokens = false;
     let currentModel: string | null = null;
-    const byModel: Record<string, { cost: number; tokens: { total: number; input: number; output: number } }> = {};
+    const byModel: Record<string, { cost?: number; tokens: { total: number; input: number; output: number } }> = {};
 
     try {
       if (filePath && fs.existsSync(filePath)) {
@@ -840,17 +953,12 @@ export class SessionIndex {
             if (u) {
               let lineCost = 0;
               let hasLineCost = false;
-              if (u.cost !== undefined) {
-                const rawCost = typeof u.cost === 'object' && u.cost !== null
-                  ? (u.cost.total ?? u.cost.amount)
-                  : u.cost;
-                const numCost = Number(rawCost);
-                if (!Number.isNaN(numCost)) {
-                  totalCost += numCost;
-                  lineCost = numCost;
-                  hasCost = true;
-                  hasLineCost = true;
-                }
+              const parsedCost = parseCost(entry.usage?.cost !== undefined ? entry.usage.cost : entry.message?.usage?.cost);
+              if (parsedCost !== undefined) {
+                totalCost += parsedCost;
+                lineCost = parsedCost;
+                hasCost = true;
+                hasLineCost = true;
               }
 
               let lineTotalTokens = 0;
@@ -881,16 +989,17 @@ export class SessionIndex {
 
               if (hasLineCost || hasLineTokens) {
                 let modelKey = entry.message?.model || entry.model || entry.modelId || currentModel;
-                if (entry.type === 'compaction' || entry.role === 'compactionSummary' || entry.type === 'summary') {
+                if (entry.type === 'compaction' || entry.role === 'compactionSummary' || entry.type === 'summary' ||
+                    ((entry.message?.role === 'toolResult' || entry.role === 'toolResult') && !entry.message?.model && !entry.model)) {
                   modelKey = 'Tools/summaries';
                 } else if (!modelKey) {
                   modelKey = model || 'Modello Principale';
                 }
                 if (!byModel[modelKey]) {
-                  byModel[modelKey] = { cost: 0, tokens: { total: 0, input: 0, output: 0 } };
+                  byModel[modelKey] = { tokens: { total: 0, input: 0, output: 0 } };
                 }
                 if (hasLineCost) {
-                  byModel[modelKey].cost += lineCost;
+                  byModel[modelKey].cost = (byModel[modelKey].cost ?? 0) + lineCost;
                 }
                 if (hasLineTokens) {
                   byModel[modelKey].tokens.total += lineTotalTokens;

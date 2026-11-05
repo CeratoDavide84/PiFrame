@@ -85,7 +85,7 @@ void main() {
 
     // Dialog Level 1: Agent Models
     expect(find.text('Costi Modelli Agente'), findsOneWidget);
-    expect(find.text('Totale Agente Principale'), findsOneWidget);
+    expect(find.text('Costo riportato da Pi'), findsOneWidget);
 
     // Check all models and their costs
     expect(find.text('github-copilot/gpt-6.1-sol'), findsOneWidget);

@@ -182,6 +182,51 @@ void main() {
     await Future.wait([login, logout]);
   });
 
+  test('subagents unwrap daemon data with persisted model and cost', () async {
+    final result = client.getSubagents('parent');
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    expect(commands.single['type'], 'session.subagents');
+    socket.add(jsonEncode({
+      'kind': 'result',
+      'commandId': commands.single['commandId'],
+      'payload': {
+        'state': 'completed',
+        'data': {
+          'subagents': [
+            {'id': 'child', 'model': 'actual-model', 'cost': 0.0175},
+          ],
+        },
+      },
+    }));
+    expect(await result, [
+      {'id': 'child', 'model': 'actual-model', 'cost': 0.0175},
+    ]);
+  });
+
+  test('subagents propagate failed responses instead of returning empty', () async {
+    final result = client.getSubagents('parent');
+    final assertion = expectLater(result, throwsA(isA<StateError>()));
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    socket.add(jsonEncode({
+      'kind': 'result',
+      'commandId': commands.single['commandId'],
+      'payload': {'state': 'failed', 'error': 'Unavailable'},
+    }));
+    await assertion;
+  });
+
+  test('subagents reject malformed data instead of returning empty', () async {
+    final result = client.getSubagents('parent');
+    final assertion = expectLater(result, throwsA(isA<FormatException>()));
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    socket.add(jsonEncode({
+      'kind': 'result',
+      'commandId': commands.single['commandId'],
+      'payload': {'state': 'completed', 'data': {}},
+    }));
+    await assertion;
+  });
+
   test('dispose rejects pending commands', () async {
     final result = client.listSessions();
     final assertion = expectLater(result, throwsA(isA<StateError>()));

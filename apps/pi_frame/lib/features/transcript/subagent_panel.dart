@@ -50,7 +50,11 @@ class _SubagentsPopDownState extends ConsumerState<SubagentsPopDown>
       return const SizedBox.shrink();
     }
 
-    final runningCount = subagents.where((s) => s.isRunning).length;
+    final agents = subagents.where((s) => !s.isUnlinked).toList();
+    final agentCount = agents.length;
+    final runningCount = agents.where((s) => s.isRunning).length;
+    final knownCost = agents.fold<double>(0, (total, s) => total + (s.cost ?? 0));
+    final costLabel = '${agents.any((s) => s.cost == null) ? 'Parziale ' : ''}\$${knownCost.toStringAsFixed(4)}';
 
     final isMobile = MediaQuery.sizeOf(context).width < 600;
 
@@ -114,7 +118,7 @@ class _SubagentsPopDownState extends ConsumerState<SubagentsPopDown>
                             ),
                             const SizedBox(width: 8),
                             Text(
-                              'Subagenti (${subagents.length})',
+                              'Subagenti ($agentCount)',
                               style: TextStyle(
                                 color: tokens.textPrimary,
                                 fontSize: 13,
@@ -122,7 +126,7 @@ class _SubagentsPopDownState extends ConsumerState<SubagentsPopDown>
                                 fontFamily: tokens.headingFontFamily,
                               ),
                             ),
-                            if (subagents.any((s) => (s.cost ?? 0) > 0)) ...[
+                            if (agents.any((s) => (s.cost ?? 0) > 0)) ...[
                               const SizedBox(width: 8),
                               Container(
                                 padding: const EdgeInsets.symmetric(
@@ -147,7 +151,7 @@ class _SubagentsPopDownState extends ConsumerState<SubagentsPopDown>
                                     ),
                                     const SizedBox(width: 3),
                                     Text(
-                                      '\$${subagents.fold<double>(0.0, (acc, s) => acc + (s.cost ?? 0.0)).toStringAsFixed(4)}',
+                                      costLabel,
                                       style: TextStyle(
                                         color: tokens.syntaxString,
                                         fontSize: 10.5,
@@ -238,6 +242,20 @@ class _SubagentsPopDownState extends ConsumerState<SubagentsPopDown>
                       itemBuilder: (ctx, index) {
                         final subagent = subagents[index];
                         final isExpanded = _expandedIds.contains(subagent.id);
+                        if (subagent.isUnlinked) {
+                          final model = subagent.model ?? 'N/D';
+                          final cost = subagent.cost == null
+                              ? 'N/D'
+                              : '\$${subagent.cost!.toStringAsFixed(4)}';
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                            child: Text(
+                              'Sessione figlia non attribuita: ${subagent.name} · $model · $cost',
+                              key: ValueKey('unlinked-session-${subagent.id}'),
+                              style: TextStyle(color: tokens.textMuted, fontSize: 11),
+                            ),
+                          );
+                        }
 
                         return _SubagentExpandableCard(
                           key: ValueKey('subagent-card-${subagent.id}'),
@@ -344,17 +362,17 @@ class _SubagentsPopDownState extends ConsumerState<SubagentsPopDown>
                           ),
                           const SizedBox(width: 5),
                           Text(
-                            'Subagenti (${subagents.length})',
+                            'Subagenti ($agentCount)',
                             style: TextStyle(
                               color: tokens.textPrimary,
                               fontSize: 10.5,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
-                          if (subagents.any((s) => (s.cost ?? 0) > 0)) ...[
+                          if (agents.any((s) => (s.cost ?? 0) > 0)) ...[
                             const SizedBox(width: 5),
                             Text(
-                              '\$${subagents.fold<double>(0.0, (acc, s) => acc + (s.cost ?? 0.0)).toStringAsFixed(4)}',
+                              costLabel,
                               style: TextStyle(
                                 color: tokens.syntaxString,
                                 fontSize: 9.5,
@@ -513,7 +531,7 @@ class _SubagentExpandableCardState extends State<_SubagentExpandableCard> {
                               child: Text(
                                 sub.model != null && sub.model!.isNotEmpty
                                     ? sub.model!
-                                    : 'default',
+                                    : 'N/D',
                                 style: TextStyle(
                                   color: tokens.textSecondary,
                                   fontSize: 10,
@@ -810,6 +828,7 @@ class _SubagentExpandableCardState extends State<_SubagentExpandableCard> {
         icon = Icons.refresh;
         label = 'In corso';
         break;
+      case 'steering':
       case 'steered':
         color = tokens.syntaxFunction;
         icon = Icons.alt_route;

@@ -73,10 +73,12 @@ if (-not $SkipBuild) {
         Write-Host "`n[3/4] Building Flutter web app (remote access assets)..." -ForegroundColor Yellow
         flutter build web --release --no-web-resources-cdn --dart-define="PI_FRAME_VERSION=$Version"
         if ($LASTEXITCODE -ne 0) { throw "flutter build web failed" }
-    } finally {
+    }
+    finally {
         Pop-Location
     }
-} else {
+}
+else {
     Write-Host "`n[-SkipBuild specified: skipping pnpm and flutter build steps]" -ForegroundColor DarkYellow
 }
 
@@ -85,6 +87,25 @@ Write-Host "`n[4/4] Staging runtime assets & compiling Inno Setup installer..." 
 $bundle = Join-Path $repoRoot 'apps/pi_frame/build/windows/x64/runner/Release'
 if (!(Test-Path $bundle)) {
     throw "Release directory not found: $bundle. Did Flutter build succeed?"
+}
+
+# Terminate any stale processes running from the release bundle directory (e.g. background daemon node.exe or PiFrame.exe)
+Get-Process -Name "node", "PiFrame" -ErrorAction SilentlyContinue | Where-Object {
+    try {
+        $_.Path -and ($_.Path.StartsWith($bundle, [System.StringComparison]::OrdinalIgnoreCase))
+    }
+    catch {
+        $false
+    }
+} | ForEach-Object {
+    Write-Host "Stopping stale process running from release bundle: $($_.ProcessName) (PID $($_.Id))..." -ForegroundColor DarkYellow
+    Stop-Process -Id $_.Id -Force -ErrorAction SilentlyContinue
+}
+
+# Clean up temporary WebView2 runtime user data generated during local app runs
+$webView2Dir = Join-Path $bundle 'PiFrame.exe.WebView2'
+if (Test-Path $webView2Dir) {
+    Remove-Item $webView2Dir -Recurse -Force -ErrorAction SilentlyContinue
 }
 
 # Copy daemon bundle
@@ -99,18 +120,77 @@ if ($nodeCmd) {
 if (!$nodePath -or !(Test-Path $nodePath)) {
     throw "Node.js executable ('node') not found on PATH."
 }
-Copy-Item $nodePath (Join-Path $bundle 'node.exe') -Force
+$targetNode = Join-Path $bundle 'node.exe'
+$copied = $false
+for ($attempt = 1; $attempt -le 3; $attempt++) {
+    try {
+        Copy-Item $nodePath $targetNode -Force
+        $copied = $true
+        break
+    }
+    catch {
+        if ($attempt -lt 3) {
+            Start-Sleep -Milliseconds 500
+        }
+    }
+}
+if (!$copied) {
+    if ((Test-Path $targetNode) -and ((Get-Item $nodePath).Length -eq (Get-Item $targetNode).Length)) {
+        Write-Warning "Could not overwrite '$targetNode' because it is locked by another process, but destination exists and size matches source. Proceeding with existing file."
+    }
+    else {
+        throw "Failed to copy Node executable to '$targetNode'. Ensure no processes (such as PiFrame or node) are running from that directory."
+    }
+}
 
 # Copy Node license
 $nodeLicense = Join-Path (Split-Path $nodePath -Parent) 'LICENSE'
 if (Test-Path $nodeLicense) {
     Copy-Item $nodeLicense (Join-Path $bundle 'NODE-LICENSE.txt') -Force
-} else {
+}
+else {
     "Node.js Runtime License" | Out-File -FilePath (Join-Path $bundle 'NODE-LICENSE.txt') -Encoding utf8
 }
 
 # Copy Flutter web assets
-Copy-Item (Join-Path $repoRoot 'apps/pi_frame/build/web') (Join-Path $bundle 'web') -Recurse -Force
+$targetWeb = Join-Path $bundle 'web'
+if (Test-Path $targetWeb) {
+    Remove-Item $targetWeb -Recurse -Force
+}
+Copy-Item (Join-Path $repoRoot 'apps/pi_frame/build/web') $targetWeb -Recurse -Force
+
+# Copy Visual C++ CRT runtime DLLs (App-Local deployment for clean Windows installations without VC++ Redistributable)
+$vcRedistDir = $null
+$vsWhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+if (Test-Path $vsWhere) {
+    $vsPath = & $vsWhere -latest -products * -property installationPath
+    if ($vsPath -and (Test-Path $vsPath)) {
+        $redistBase = Join-Path $vsPath 'VC\Redist\MSVC'
+        if (Test-Path $redistBase) {
+            $latestVersion = Get-ChildItem $redistBase -Directory | Where-Object { $_.Name -match '^\d+\.\d+' } | Sort-Object Name -Descending | Select-Object -First 1
+            if ($latestVersion) {
+                $crtDir = Get-ChildItem (Join-Path $latestVersion.FullName 'x64') -Filter 'Microsoft.VC*.CRT' -Directory -ErrorAction SilentlyContinue | Select-Object -First 1
+                if ($crtDir -and (Test-Path $crtDir.FullName)) {
+                    $vcRedistDir = $crtDir.FullName
+                }
+            }
+        }
+    }
+}
+if (!$vcRedistDir) {
+    $candidates = Get-ChildItem -Path "${env:ProgramFiles}\Microsoft Visual Studio", "${env:ProgramFiles(x86)}\Microsoft Visual Studio" -Recurse -Filter "Microsoft.VC*.CRT" -Directory -ErrorAction SilentlyContinue | Where-Object { $_.FullName -like "*x64*" -and $_.FullName -notlike "*onecore*" }
+    if ($candidates) {
+        $vcRedistDir = ($candidates | Select-Object -First 1).FullName
+    }
+}
+if ($vcRedistDir -and (Test-Path $vcRedistDir)) {
+    Write-Host "Staging Visual C++ CRT runtime DLLs (app-local) from: $vcRedistDir" -ForegroundColor Gray
+    Get-ChildItem -Path $vcRedistDir -Filter '*.dll' | ForEach-Object {
+        Copy-Item $_.FullName $bundle -Force
+    }
+} else {
+    Write-Warning "Visual C++ CRT redistributable directory not found. Target systems will require the VC++ 2015-2022 Redistributable installed."
+}
 
 # Verify bundle integrity
 $requiredFiles = @('PiFrame.exe', 'pi-agentd.cjs', 'node.exe', 'NODE-LICENSE.txt', 'web/index.html')
@@ -137,6 +217,7 @@ if (Test-Path $expectedInstaller) {
     $sizeMb = [math]::Round($fileInfo.Length / 1MB, 2)
     Write-Host "`n Installer generated successfully!" -ForegroundColor Green
     Write-Host "Location: $expectedInstaller ($sizeMb MB)" -ForegroundColor Cyan
-} else {
+}
+else {
     Write-Host "`n Installer created in: $distDir" -ForegroundColor Green
 }

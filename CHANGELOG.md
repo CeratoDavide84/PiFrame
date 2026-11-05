@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.3.1](https://github.com/TrentiStefano/PiFrame/compare/v1.3.0...v1.3.1) (2026-11-05)
+
+
+### Bug Fixes
+
+* **packaging:** bundle Visual C++ CRT runtime and fix nested web assets ([8aed40a](https://github.com/TrentiStefano/PiFrame/commit/8aed40a0ab82bdd7a2c340e126945c894581470b))
+* **packaging:** handle locked node.exe and clean WebView2 cache in windows installer ([5f3326e](https://github.com/TrentiStefano/PiFrame/commit/5f3326ece3a696663a726f38befc9e66a16191ea))
+* **questions:** keep custom answers inline ([179a109](https://github.com/TrentiStefano/PiFrame/commit/179a109fcab256dd023a0813be5a0e9eed679149))
+* **subagents:** clear analyzer diagnostics ([8f74eb1](https://github.com/TrentiStefano/PiFrame/commit/8f74eb15087349569adec127a1e2e43fe60f0493))
+* **subagents:** clear analyzer diagnostics ([9f7ba1b](https://github.com/TrentiStefano/PiFrame/commit/9f7ba1bf5ea4a50852e03f04c8763d20a41fa931))
+* **subagents:** keep background runs active until termination ([3715288](https://github.com/TrentiStefano/PiFrame/commit/3715288f35a37704392e75986eedc0e989b728ce))
+* **subagents:** reconcile cards with child sessions ([14165f4](https://github.com/TrentiStefano/PiFrame/commit/14165f43c4ea5b1007ce1056424912d153ed37d9))
+
 ## [1.3.0](https://github.com/TrentiStefano/PiFrame/compare/v1.2.0...v1.3.0) (2026-10-31)
 
 

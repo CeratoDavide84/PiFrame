@@ -573,13 +573,13 @@ class _IntegratedTerminalPanelState
                         ),
                       ),
                       if (Platform.isWindows)
-                        const PopupMenuItem(
+                        PopupMenuItem(
                           value: 'cmd',
                           child: Row(
                             children: [
-                              Icon(Icons.terminal, size: 15),
-                              SizedBox(width: 8),
-                              Text('Command Prompt (cmd)'),
+                              const Icon(Icons.terminal, size: 15),
+                              const SizedBox(width: 8),
+                              Text(_tr('Prompt dei comandi (cmd)', 'Command Prompt (cmd)')),
                             ],
                           ),
                         ),

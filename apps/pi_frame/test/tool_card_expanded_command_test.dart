@@ -45,7 +45,7 @@ void main() {
       expect(expandedBox, findsOneWidget);
       expect(find.descendant(of: expandedBox, matching: find.text(veryLongCommand)), findsOneWidget);
       expect(find.text('Comando lanciato'), findsOneWidget);
-      expect(find.text('Copia comando'), findsOneWidget);
+      expect(find.text('Copy command'), findsOneWidget);
       // Timeout badge in expanded header
       expect(find.byKey(const ValueKey('tool-card-expanded-timeout')), findsOneWidget);
       expect(find.text('Timeout richiesto: 30s'), findsOneWidget);

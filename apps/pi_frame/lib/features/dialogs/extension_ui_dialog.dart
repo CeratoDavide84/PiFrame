@@ -449,7 +449,7 @@ class _ExtensionUiDialogState extends ConsumerState<ExtensionUiDialog> {
                                       ),
                                       decoration: InputDecoration(
                                         isDense: true,
-                                        hintText: 'Scrivi la risposta...',
+                                        hintText: _tr('Scrivi la risposta...', 'Type your answer...'),
                                         contentPadding:
                                             const EdgeInsets.symmetric(
                                               horizontal: 10,

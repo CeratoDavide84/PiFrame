@@ -2232,7 +2232,7 @@ class _GitChangesPaneState extends ConsumerState<GitChangesPane> {
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, _message.text.trim()),
-            child: const Text('Commit'),
+            child: Text(_tr('Crea commit', 'Commit')),
           ),
         ],
       ),
@@ -2867,7 +2867,7 @@ class _GitChangesPaneState extends ConsumerState<GitChangesPane> {
                   onPressed: blocked || _working || staged.isEmpty
                       ? null
                       : _commit,
-                  child: Text('Commit (${staged.length})'),
+                  child: Text(_tr('Crea commit (${staged.length})', 'Commit (${staged.length})')),
                 ),
               ),
             ),

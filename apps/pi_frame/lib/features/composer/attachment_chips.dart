@@ -345,7 +345,7 @@ class ImagePreviewDialog extends ConsumerWidget {
   }
 }
 
-class AttachmentChip extends StatelessWidget {
+class AttachmentChip extends ConsumerWidget {
   final ChatAttachment attachment;
   final bool isEditable;
   final VoidCallback? onRemove;
@@ -369,11 +369,11 @@ class AttachmentChip extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final tokens = context.tokens;
 
     if (attachment.isImage) {
-      return _buildImageThumbnail(context, tokens);
+      return _buildImageThumbnail(context, tokens, ref.watch(appLanguageProvider) == AppLanguage.it);
     }
 
     if (attachment.isWebLink) {
@@ -492,13 +492,13 @@ class AttachmentChip extends StatelessWidget {
     );
   }
 
-  Widget _buildImageThumbnail(BuildContext context, FrameTokens tokens) {
+  Widget _buildImageThumbnail(BuildContext context, FrameTokens tokens, bool isItalian) {
     return Stack(
       key: ValueKey('attachment-image-${attachment.id}'),
       clipBehavior: Clip.none,
       children: [
         Tooltip(
-          message: '${attachment.name} (Clicca per ingrandire)',
+          message: isItalian ? '${attachment.name} (Clicca per ingrandire)' : '${attachment.name} (Click to enlarge)',
           child: InkWell(
             borderRadius: BorderRadius.circular(tokens.radiusSm),
             onTap:

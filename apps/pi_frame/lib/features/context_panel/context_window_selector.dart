@@ -73,7 +73,7 @@ class _ContextWindowSelectorState extends ConsumerState<ContextWindowSelector> {
     } catch (error) {
       if (generation == _generation) _draft = null;
       if (mounted && generation == _generation) {
-        FrameSnackBar.show(context, message: 'Limite non applicato: $error');
+        FrameSnackBar.show(context, message: _tr('Limite non applicato: $error', 'Limit not applied: $error'));
       }
     } finally {
       if (saving.mounted) saving.state = false;

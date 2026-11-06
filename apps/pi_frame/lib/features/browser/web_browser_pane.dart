@@ -280,7 +280,7 @@ class _WebBrowserPaneState extends ConsumerState<WebBrowserPane> {
 
     FrameSnackBar.show(
       context,
-      message: 'Link della pagina aggiunto al prompt del composer.',
+      message: _tr('Link della pagina aggiunto al prompt.', 'Page link added to the prompt.'),
       duration: const Duration(seconds: 2),
     );
   }
@@ -289,7 +289,7 @@ class _WebBrowserPaneState extends ConsumerState<WebBrowserPane> {
     Clipboard.setData(ClipboardData(text: url));
     FrameSnackBar.show(
       context,
-      message: 'URL copiato negli appunti.',
+      message: _tr('URL copiato negli appunti.', 'URL copied to clipboard.'),
       duration: const Duration(seconds: 2),
     );
   }
@@ -348,7 +348,7 @@ class _WebBrowserPaneState extends ConsumerState<WebBrowserPane> {
               children: [
                 _buildSegmentButton(
                   key: const ValueKey('right-pane-switch-git-chip'),
-                  label: 'Git Changes',
+                  label: 'Git',
                   icon: Icons.source_outlined,
                   isSelected: false,
                   tokens: tokens,
@@ -360,7 +360,7 @@ class _WebBrowserPaneState extends ConsumerState<WebBrowserPane> {
                 ),
                 _buildSegmentButton(
                   key: const ValueKey('right-pane-switch-browser-chip'),
-                  label: 'Web Browser',
+                  label: 'Browser',
                   icon: Icons.language,
                   isSelected: true,
                   tokens: tokens,
@@ -548,7 +548,7 @@ class _WebBrowserPaneState extends ConsumerState<WebBrowserPane> {
                           child: Text(
                             tab.title.isEmpty
                                 ? _tr('Nuova scheda', 'New tab')
-                                : tab.title,
+                                : (tab.isHome ? _tr('Pagina iniziale', 'Home') : tab.title),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
@@ -664,7 +664,7 @@ class _WebBrowserPaneState extends ConsumerState<WebBrowserPane> {
           ),
           IconButton(
             key: const ValueKey('browser-home-btn'),
-            tooltip: 'Home',
+            tooltip: _tr('Pagina iniziale', 'Home'),
             visualDensity: VisualDensity.compact,
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
@@ -770,7 +770,7 @@ class _WebBrowserPaneState extends ConsumerState<WebBrowserPane> {
                   ),
                   IconButton(
                     key: const ValueKey('browser-go-btn'),
-                    tooltip: 'Vai',
+                    tooltip: _tr('Vai', 'Go'),
                     visualDensity: VisualDensity.compact,
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(
@@ -1380,8 +1380,8 @@ class _WebBrowserPaneState extends ConsumerState<WebBrowserPane> {
               const SizedBox(height: 20),
               Icon(Icons.travel_explore, size: 48, color: tokens.accent),
               const SizedBox(height: 12),
-              const Text(
-                'PiFrame Web Browser',
+              Text(
+                _tr('Browser web PiFrame', 'PiFrame Web Browser'),
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 6),

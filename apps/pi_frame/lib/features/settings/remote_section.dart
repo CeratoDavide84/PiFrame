@@ -883,9 +883,9 @@ class _RemoteSectionState extends ConsumerState<RemoteSection> {
                             DropdownButton<String>(
                               value: mode,
                               underline: const SizedBox(),
-                              items: const [
-                                DropdownMenuItem(value: 'view', child: Text('View', style: TextStyle(fontSize: 12))),
-                                DropdownMenuItem(value: 'control', child: Text('Control', style: TextStyle(fontSize: 12))),
+                              items: [
+                                DropdownMenuItem(value: 'view', child: Text(_tr('Visualizzazione', 'View'), style: const TextStyle(fontSize: 12))),
+                                DropdownMenuItem(value: 'control', child: Text(_tr('Controllo', 'Control'), style: const TextStyle(fontSize: 12))),
                               ],
                               onChanged: (newMode) {
                                 if (newMode != null) {

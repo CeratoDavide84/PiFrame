@@ -477,7 +477,7 @@ class _TranscriptViewState extends ConsumerState<TranscriptView> {
         if (req['method'] == 'notify') {
           FrameSnackBar.show(
             context,
-            message: req['message']?.toString() ?? 'Notifica',
+            message: req['message']?.toString() ?? _tr('Notifica', 'Notification'),
           );
         }
       });

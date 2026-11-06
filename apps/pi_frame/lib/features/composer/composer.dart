@@ -232,7 +232,7 @@ class _ComposerState extends ConsumerState<Composer> {
                   await sessionNotifier.updateSteerMessage(index, newText);
                 }
               },
-              child: const Text('Aggiorna'),
+              child: Text(_tr('Aggiorna', 'Update')),
             ),
           ],
         );
@@ -427,7 +427,7 @@ class _ComposerState extends ConsumerState<Composer> {
         }
       } catch (error) {
         if (mounted) {
-          FrameSnackBar.show(context, message: 'Comando non riuscito: $error');
+          FrameSnackBar.show(context, message: _tr('Comando non riuscito: $error', 'Command failed: $error'));
         }
       } finally {
         if (sending.mounted) sending.state = false;
@@ -564,7 +564,7 @@ class _ComposerState extends ConsumerState<Composer> {
     if (state.files.isEmpty) {
       FrameSnackBar.show(
         context,
-        message: state.error ?? 'Nessun file disponibile nella sessione.',
+        message: state.error ?? _tr('Nessun file disponibile nella sessione.', 'No files available in this session.'),
       );
       return;
     }
@@ -675,7 +675,7 @@ class _ComposerState extends ConsumerState<Composer> {
       if (mounted) {
         FrameSnackBar.show(
           context,
-          message: 'Interruzione non riuscita: $error',
+          message: _tr('Interruzione non riuscita: $error', 'Interrupt failed: $error'),
         );
       }
       return;
@@ -795,7 +795,7 @@ class _ComposerState extends ConsumerState<Composer> {
         if (!mounted) return;
         FrameSnackBar.show(
           context,
-          message: 'Ultimo messaggio dell’agente copiato.',
+          message: _tr('Ultimo messaggio dell’agente copiato.', 'Last agent message copied.'),
         );
         return;
       case 'name':
@@ -1024,7 +1024,7 @@ class _ComposerState extends ConsumerState<Composer> {
                     'Model: ${state.currentModel ?? '—'}',
                   ),
                 ),
-                Text('Thinking: ${state.currentThinkingLevel ?? '—'}'),
+                Text(_tr('Livello di ragionamento: ${state.currentThinkingLevel ?? '—'}', 'Thinking level: ${state.currentThinkingLevel ?? '—'}')),
                 const SizedBox(height: 12),
                 for (final entry in stats.entries)
                   Text('${entry.key}: ${entry.value}'),

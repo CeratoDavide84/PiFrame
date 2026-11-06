@@ -360,7 +360,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('PiFrame Web Browser'), findsOneWidget);
+      expect(find.text('Browser web PiFrame'), findsOneWidget);
       expect(find.byKey(const ValueKey('browser-omnibox-input')), findsOneWidget);
       expect(find.byKey(const ValueKey('browser-home-dashboard')), findsOneWidget);
       expect(find.text('pub.dev'), findsWidgets);

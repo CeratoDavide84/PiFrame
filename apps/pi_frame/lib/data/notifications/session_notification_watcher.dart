@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/session/agent_status.dart';
 import '../../domain/session/session_state.dart';
+import '../language/language_settings.dart';
 import '../daemon/daemon_providers.dart';
 import '../../features/sessions_sidebar/pinned_sessions_provider.dart';
 import 'notification_providers.dart';
@@ -90,6 +91,7 @@ class _SessionWatcherItemState extends ConsumerState<_SessionWatcherItem> {
     if (!enabled) return;
 
     final service = ref.read(desktopNotificationServiceProvider);
+    final isItalian = ref.read(appLanguageProvider) == AppLanguage.it;
     final isFocusedCached = ref.read(appFocusProvider);
     final isFocused = await service.checkIsAppFocused(isFocusedCached);
     if (isFocused) return;
@@ -111,11 +113,16 @@ class _SessionWatcherItemState extends ConsumerState<_SessionWatcherItem> {
           if (reqId.isNotEmpty && !_handledUiRequestIds.contains(reqId)) {
             _handledUiRequestIds.add(reqId);
             final sessionName = next.sessionName ?? widget.sessionId;
-            final title = req['title']?.toString() ?? 'Attenzione richiesta';
+            final title = req['title']?.toString() ??
+                (isItalian ? 'Attenzione richiesta' : 'Attention required');
             final message = req['message']?.toString() ??
-                'L\'agente richiede una tua risposta o scelta.';
+                (isItalian
+                    ? 'L\'agente richiede una tua risposta o scelta.'
+                    : 'The agent needs your response or choice.');
             unawaited(service.showNotification(
-              title: 'Richiesta attenzione · $sessionName',
+              title: isItalian
+                  ? 'Richiesta attenzione · $sessionName'
+                  : 'Attention required · $sessionName',
               body: '$title: $message',
               sessionId: widget.sessionId,
             ));
@@ -144,9 +151,13 @@ class _SessionWatcherItemState extends ConsumerState<_SessionWatcherItem> {
             ? (rawText.length > 120
                 ? '${rawText.substring(0, 120)}...'
                 : rawText)
-            : 'L\'agente ha completato la risposta.';
+            : (isItalian
+                ? 'L\'agente ha completato la risposta.'
+                : 'The agent has finished its response.');
         unawaited(service.showNotification(
-          title: 'Risposta completata · $sessionName',
+          title: isItalian
+              ? 'Risposta completata · $sessionName'
+              : 'Response complete · $sessionName',
           body: preview,
           sessionId: widget.sessionId,
         ));

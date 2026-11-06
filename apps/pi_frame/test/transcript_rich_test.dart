@@ -105,7 +105,7 @@ void main() {}
     expect(find.text('lib/main.dart'), findsOneWidget);
     expect(find.text('README.md'), findsOneWidget);
     expect(find.byIcon(Icons.insert_drive_file_outlined), findsNWidgets(2));
-    expect(find.byTooltip('CTRL+clic per aprire in Esplora file'), findsWidgets);
+    expect(find.byTooltip('Ctrl+click to open in File Explorer'), findsWidgets);
 
     // Verify SelectionContainer.disabled is present so that SelectionArea does not override mouse cursor
     final disabledContainers = find.descendant(

@@ -624,7 +624,7 @@ class _ToolCardState extends State<ToolCard> {
                               );
                               FrameSnackBar.show(
                                 context,
-                                message: 'Comando copiato negli appunti',
+                                message: isItalian ? 'Comando copiato negli appunti' : 'Command copied to clipboard',
                                 duration: const Duration(seconds: 1),
                               );
                             },

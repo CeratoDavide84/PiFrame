@@ -903,7 +903,7 @@ class _SessionsSidebarState extends ConsumerState<SessionsSidebar> {
                 ),
                 IconButton(
                   icon: Icon(Icons.search, size: 16, color: tokens.textMuted),
-                  tooltip: 'Command Palette (Ctrl+K)',
+                  tooltip: _tr('Tavolozza comandi (Ctrl+K)', 'Command palette (Ctrl+K)'),
                   onPressed: () {
                     CommandPalette.show(
                       context,

@@ -103,14 +103,14 @@ class _SettingsViewState extends ConsumerState<SettingsView>
           ref.invalidate(daemonEndpointProvider);
           _fetchDaemonConfig();
           _fetchPiPackages();
-          FrameSnackBar.show(context, message: 'Daemon riavviato con successo');
+          FrameSnackBar.show(context, message: _tr('Daemon riavviato con successo', 'Daemon restarted successfully'));
         } else {
-          FrameSnackBar.show(context, message: 'Riavvio daemon non riuscito');
+          FrameSnackBar.show(context, message: _tr('Riavvio daemon non riuscito', 'Failed to restart daemon'));
         }
       }
     } catch (e) {
       if (mounted) {
-        FrameSnackBar.show(context, message: 'Errore durante il riavvio: $e');
+        FrameSnackBar.show(context, message: _tr('Errore durante il riavvio: $e', 'Error while restarting: $e'));
       }
     } finally {
       if (mounted) setState(() => _isRestartingDaemon = false);
@@ -1705,8 +1705,8 @@ class _SettingsViewState extends ConsumerState<SettingsView>
                                 onPressed: () async {
                                   final file = await openFile(
                                     acceptedTypeGroups: [
-                                      const XTypeGroup(
-                                        label: 'Eseguibile',
+                                      XTypeGroup(
+                                        label: _tr('Eseguibile', 'Executable'),
                                         extensions: ['exe', 'bat', 'cmd', 'sh'],
                                       ),
                                     ],

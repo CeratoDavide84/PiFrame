@@ -244,7 +244,7 @@ class _SubagentsPopDownState extends ConsumerState<SubagentsPopDown>
                           size: 18,
                           color: tokens.textMuted,
                         ),
-                        tooltip: 'Comprimi subagenti',
+                        tooltip: ref.read(appLanguageProvider) == AppLanguage.it ? 'Comprimi subagenti' : 'Collapse subagents',
                         onPressed: _handleToggle,
                       ),
                     ],

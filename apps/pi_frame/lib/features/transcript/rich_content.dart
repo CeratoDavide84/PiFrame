@@ -284,6 +284,7 @@ class RichContent extends StatefulWidget {
     String text,
     FrameTokens tokens, {
     String? cwd,
+    required bool isItalian,
   }) {
     final rawLines =
         (text.contains('\r') ? text.replaceAll('\r\n', '\n') : text).split(
@@ -300,7 +301,7 @@ class RichContent extends StatefulWidget {
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 4),
               child: Text.rich(
-                _parseInlineSpans(content, tokens, cwd: cwd),
+                _parseInlineSpans(content, tokens, cwd: cwd, isItalian: isItalian),
                 style: TextStyle(
                   color: tokens.textPrimary,
                   fontSize: 13.5,
@@ -390,7 +391,7 @@ class RichContent extends StatefulWidget {
               ),
             ),
             child: Text.rich(
-              _parseInlineSpans(trimmed.substring(2).trim(), tokens, cwd: cwd),
+              _parseInlineSpans(trimmed.substring(2).trim(), tokens, cwd: cwd, isItalian: isItalian),
               style: TextStyle(
                 color: tokens.textSecondary,
                 fontSize: 13,
@@ -425,6 +426,7 @@ class RichContent extends StatefulWidget {
                       trimmed.substring(2).trim(),
                       tokens,
                       cwd: cwd,
+                      isItalian: isItalian,
                     ),
                     style: TextStyle(
                       color: tokens.textPrimary,
@@ -463,7 +465,7 @@ class RichContent extends StatefulWidget {
                 ),
                 Expanded(
                   child: Text.rich(
-                    _parseInlineSpans(itemText, tokens, cwd: cwd),
+                    _parseInlineSpans(itemText, tokens, cwd: cwd, isItalian: isItalian),
                     style: TextStyle(
                       color: tokens.textPrimary,
                       fontSize: 13.5,
@@ -494,6 +496,7 @@ class RichContent extends StatefulWidget {
     String text,
     FrameTokens tokens, {
     String? cwd,
+    required bool isItalian,
   }) {
     final spans = <InlineSpan>[];
 
@@ -638,6 +641,7 @@ class RichContent extends StatefulWidget {
               targetPath: m.text,
               tokens: tokens,
               cwd: cwd,
+              isItalian: isItalian,
             ),
           );
         } else if (m.type == _InlineType.bold) {
@@ -655,6 +659,7 @@ class RichContent extends StatefulWidget {
               targetPath: target,
               tokens: tokens,
               cwd: cwd,
+              isItalian: isItalian,
             ),
           );
         } else if (m.type == _InlineType.link) {
@@ -668,6 +673,7 @@ class RichContent extends StatefulWidget {
                 targetPath: targetUrl,
                 tokens: tokens,
                 cwd: cwd,
+                isItalian: isItalian,
               ),
             );
           } else {
@@ -699,6 +705,7 @@ class RichContent extends StatefulWidget {
     required String displayText,
     required String targetPath,
     required FrameTokens tokens,
+    required bool isItalian,
     String? cwd,
   }) {
     final chip = Container(
@@ -742,7 +749,9 @@ class RichContent extends StatefulWidget {
       alignment: PlaceholderAlignment.middle,
       child: SelectionContainer.disabled(
         child: Tooltip(
-          message: 'CTRL+clic per aprire in Esplora file',
+          message: isItalian
+              ? 'CTRL+clic per aprire in Esplora file'
+              : 'Ctrl+click to open in File Explorer',
           child: MouseRegion(
             cursor: SystemMouseCursors.click,
             child: GestureDetector(
@@ -795,14 +804,17 @@ class _RichContentState extends State<RichContent> {
   String? _cachedText;
   FrameTokens? _cachedTokens;
   String? _cachedCwd;
+  bool? _cachedIsItalian;
   Widget? _cachedBuiltWidget;
 
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
+    final isItalian = Localizations.localeOf(context).languageCode == 'it';
     if (_cachedBuiltWidget != null &&
         _cachedText == widget.text &&
         _cachedCwd == widget.cwd &&
+        _cachedIsItalian == isItalian &&
         identical(_cachedTokens, tokens)) {
       return _cachedBuiltWidget!;
     }
@@ -810,6 +822,7 @@ class _RichContentState extends State<RichContent> {
     _cachedText = widget.text;
     _cachedTokens = tokens;
     _cachedCwd = widget.cwd;
+    _cachedIsItalian = isItalian;
 
     final segments = RichContent._parseSegments(widget.text);
 
@@ -832,6 +845,7 @@ class _RichContentState extends State<RichContent> {
               seg.content,
               tokens,
               cwd: widget.cwd,
+              isItalian: isItalian,
             );
           }
           return const SizedBox.shrink();

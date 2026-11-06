@@ -72,7 +72,7 @@ class _SessionDirectoryDialogState extends ConsumerState<_SessionDirectoryDialog
           onChanged: (_) => setState(() {}),
           decoration: InputDecoration(
             labelText: _tr('Cartella di lavoro', 'Working directory'),
-            hintText: 'C:\\Projects\\my-project',
+            hintText: _tr('C:\\Progetti\\mio-progetto', 'C:\\Projects\\my-project'),
           ),
         ),
         if (kIsWeb) ...[

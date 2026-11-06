@@ -363,3 +363,19 @@ test('SessionIndex: getSubagents parses object and number costs without NaN', as
   assert.strictEqual(subagents[0].cost, 0.0175);
   assert.strictEqual(Number.isNaN(subagents[0].cost), false);
 });
+
+test('SessionIndex: daily costs use UTC timestamps and omit undated costs', (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'agentd-daily-cost-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const file = path.join(dir, 'session.jsonl');
+  fs.writeFileSync(file, [
+    { type: 'message', timestamp: '2026-11-05T23:30:00-02:00', message: { usage: { cost: 0.1 } } },
+    { type: 'message', timestamp: '2026-11-06T12:00:00Z', message: { usage: { cost: { total: 0.2 } } } },
+    { type: 'message', message: { usage: { cost: 0.4 } } },
+    { type: 'message', timestamp: 'invalid', message: { usage: { cost: 0.5 } } },
+  ].map((entry) => JSON.stringify(entry)).join('\n'));
+  const usage = new SessionIndex().extractSessionMetadata(file).usage as any;
+  assert.ok(Math.abs(usage.costByDay['2026-11-06'] - 0.3) < 1e-9);
+  assert.equal(Object.keys(usage.costByDay).length, 1);
+  assert.ok(Math.abs(usage.cost - 1.2) < 1e-9);
+});

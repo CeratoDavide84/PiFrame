@@ -960,6 +960,12 @@ class PcpClient {
     return sendCommand(cmd);
   }
 
+  Future<Map<String, dynamic>> getUsageAnalytics() => sendCommand(PcpCommand(
+    protocol: 1, id: 'cmd_${DateTime.now().millisecondsSinceEpoch}',
+    ts: DateTime.now().millisecondsSinceEpoch, sessionId: '@daemon',
+    commandId: newCommandId('usa'), type: 'usage.getAnalytics', payload: {},
+  ));
+
   Future<Map<String, dynamic>> listSessions({String? query, int? limit}) {
     final cmd = PcpCommand(
       protocol: 1,

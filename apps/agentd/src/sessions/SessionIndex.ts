@@ -924,6 +924,7 @@ export class SessionIndex {
     let hasTokens = false;
     let currentModel: string | null = null;
     const byModel: Record<string, { cost?: number; tokens: { total: number; input: number; output: number } }> = {};
+    const costByDay: Record<string, number> = {};
 
     try {
       if (filePath && fs.existsSync(filePath)) {
@@ -959,6 +960,13 @@ export class SessionIndex {
                 lineCost = parsedCost;
                 hasCost = true;
                 hasLineCost = true;
+                const rawTimestamp = entry.message?.timestamp ?? entry.timestamp;
+                const date = typeof rawTimestamp === 'number' || typeof rawTimestamp === 'string'
+                  ? new Date(rawTimestamp) : null;
+                if (date && Number.isFinite(date.getTime())) {
+                  const day = date.toISOString().slice(0, 10);
+                  costByDay[day] = (costByDay[day] ?? 0) + parsedCost;
+                }
               }
 
               let lineTotalTokens = 0;
@@ -1017,6 +1025,7 @@ export class SessionIndex {
     if (hasCost) {
       usage.cost = totalCost;
     }
+    if (Object.keys(costByDay).length > 0) usage.costByDay = costByDay;
     if (hasTokens) {
       usage.totalTokens = totalTokens;
       usage.tokens = {

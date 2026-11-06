@@ -93,6 +93,7 @@ export type PcpCommandType =
   | 'daemon.getStatus'
   | 'daemon.getConfig'
   | 'daemon.setConfig'
+  | 'usage.getAnalytics'
   | 'session.list'
   | 'session.create'
   | 'session.open'

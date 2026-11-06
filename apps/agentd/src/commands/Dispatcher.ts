@@ -9,6 +9,7 @@ import { CommandDeduplicator } from './CommandRecord.js';
 import { getPiFrameBaseDir, loadConfig, patchConfig } from '../config/config.js';
 import { WorkspaceService } from '../workspace/WorkspaceService.js';
 import { SessionIndex } from '../sessions/SessionIndex.js';
+import { collectUsage } from '../sessions/UsageAnalytics.js';
 import { applyContextPolicy, physicalModel } from '../pi/contextLimitExtension.js';
 import { DEFAULT_COMPACTION_RESERVE_PERCENT, readContextPolicy, validateContextLimit, validateReservePercent, writeContextPolicy } from '../pi/contextPolicy.js';
 import { filterModelsByEnabledPatterns, readEnabledModelPatterns } from '../pi/modelScope.js';
@@ -538,6 +539,10 @@ export class Dispatcher {
       // -----------------------------------------------------------------------
       // Session Management
       // -----------------------------------------------------------------------
+      case 'usage.getAnalytics': {
+        return collectUsage(await this.sessionIndex.scan());
+      }
+
       case 'session.list': {
         const sessions = await this.registry.listSessions(
           payload?.query,
@@ -601,6 +606,7 @@ export class Dispatcher {
         const sessionFile = data.sessionFile || session?.sessionFile;
         if (sessionFile) {
           const meta = this.sessionIndex.extractSessionMetadata(sessionFile);
+          if (meta.usage?.costByDay) data.costByDay = meta.usage.costByDay;
           if (meta.usage && (meta.usage as any).byModel) {
             data.byModel = (meta.usage as any).byModel;
             data.models = (meta.usage as any).models;

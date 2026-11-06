@@ -24,6 +24,7 @@ import 'subagent_panel.dart';
 import 'subagents_provider.dart';
 import 'todo_panel.dart';
 import 'todo_provider.dart';
+import 'usage_history_chart.dart';
 
 enum _ActiveBookTab { none, todos, subagents }
 
@@ -1226,6 +1227,12 @@ class _TranscriptViewState extends ConsumerState<TranscriptView> {
                   ),
                   const SizedBox(height: 8),
 
+                  UsageHistoryChart(
+                    costByDay: sessionState.sessionStats?['costByDay'] ?? sessionState.usage?['costByDay'],
+                    italian: _tr('it', 'en') == 'it',
+                  ),
+                  const SizedBox(height: 8),
+
                   // Agent Cost Row (Clickable)
                   InkWell(
                     key: const ValueKey('cost-breakdown-agent-row'),
@@ -1367,7 +1374,7 @@ class _TranscriptViewState extends ConsumerState<TranscriptView> {
                 width: 350,
                 child: Padding(
                   padding: const EdgeInsets.all(12),
-                  child: Column(
+                  child: SingleChildScrollView(child: Column(
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
@@ -1421,7 +1428,7 @@ class _TranscriptViewState extends ConsumerState<TranscriptView> {
                       const SizedBox(height: 10),
                       content,
                     ],
-                  ),
+                  )),
                 ),
               ),
             );

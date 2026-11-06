@@ -18,6 +18,7 @@ import 'pi_cli_section.dart';
 import 'remote_section.dart';
 import 'updates_section.dart';
 import 'theme_editor_dialog.dart';
+import 'usage_section.dart';
 import '../../ui/frame_snack_bar.dart';
 
 /// `dart:io` Platform throws `UnsupportedError` on the web build, so every OS
@@ -56,7 +57,7 @@ class _SettingsViewState extends ConsumerState<SettingsView>
   void initState() {
     super.initState();
     _tabController = TabController(
-      length: 9,
+      length: 10,
       vsync: this,
       initialIndex: widget.initialTabIndex,
     );
@@ -550,6 +551,7 @@ class _SettingsViewState extends ConsumerState<SettingsView>
                     Tab(text: strings.tabUpdates),
                     Tab(text: strings.tabTerminal),
                     Tab(text: strings.tabRemote),
+                    Tab(text: _tr('UTILIZZO', 'USAGE')),
                   ],
                 ),
               ],
@@ -1467,6 +1469,7 @@ class _SettingsViewState extends ConsumerState<SettingsView>
                     // Tab 9: Accesso Remoto Sicuro
                     // -------------------------------------------------------------
                     const RemoteSection(),
+                    const UsageSection(),
                   ],
                 ),
               ),

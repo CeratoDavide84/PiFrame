@@ -201,3 +201,11 @@ Nelle sessioni con cronologia molto estesa (migliaia di messaggi o log di tool v
 2. **Caricamento a ritroso on-demand**: in cima alla chat, il pulsante dinamico *"Carica altri messaggi dalla cronologia"* consente di recuperare blocchi incrementali di messaggi precedenti tramite il comando `session.getHistory`, preservando la posizione di scorrimento senza salti visivi.
 3. **Integrità assoluta**: l'intero archivio storico resta conservato su disco in `~/.pi/agent/sessions/` e può essere sfogliato progressivamente a ritroso fino al primissimo messaggio della sessione.
 
+
+## 8. Cronologia dei costi
+
+Nel dettaglio costi della sessione, raggiungibile dall'indicatore di costo nella chat, il grafico mostra i costi giornalieri riportati da Pi negli ultimi 7 o 30 giorni (date UTC). I dati provengono dalla sessione corrente, inclusa la cronologia su disco; i costi privi di data e le sessioni figlie non sono inclusi. I crediti effettivi e i limiti del provider non sono disponibili in PiFrame e il costo mostrato non equivale necessariamente alla fatturazione.
+
+## 9. Utilizzo nelle impostazioni
+
+La scheda **Impostazioni → Utilizzo** aggrega le sessioni Pi locali degli ultimi 7 o 30 giorni (UTC): costi riportati, token, messaggi assistente, chiamate agli strumenti, grafici per modello e strumento e dettaglio per sessione. I file delle sessioni figlie sono conteggiati separatamente; sono inclusi i rami conservati nei file. I messaggi privi di data e i file non leggibili sono esclusi. I costi non disponibili non vengono stimati: l'asterisco segnala costi o token parziali. Crediti, limiti e fatturazione del provider non sono accessibili tramite questi dati. La sezione legge i dati localmente e richiede il daemon aggiornato.

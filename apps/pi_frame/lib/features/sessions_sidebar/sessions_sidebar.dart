@@ -13,6 +13,7 @@ import '../session_tree/session_tree_dialog.dart';
 import '../workspace/repository_workspace.dart';
 import 'pinned_sessions_provider.dart';
 import 'removed_repos_provider.dart';
+import 'project_archive_provider.dart';
 import '../../domain/session/agent_status.dart';
 import '../../data/update/update_providers.dart';
 
@@ -208,6 +209,35 @@ class _SessionsSidebarState extends ConsumerState<SessionsSidebar> {
     }
   }
 
+  Future<void> _createProject() async {
+    if (_creating) return;
+    setState(() => _creating = true);
+    await createSession(context, ref);
+    if (mounted) {
+      setState(() => _creating = false);
+      widget.onSessionSelected?.call();
+    }
+  }
+
+  Future<void> _renameProject(String folder, String currentName) async {
+    final controller = TextEditingController(text: currentName);
+    final name = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(_tr('Rinomina progetto', 'Rename project')),
+        content: TextField(controller: controller, autofocus: true, onSubmitted: (value) => Navigator.pop(ctx, value.trim())),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(_tr('Annulla', 'Cancel'))),
+          FilledButton(onPressed: () => Navigator.pop(ctx, controller.text.trim()), child: Text(_tr('Salva', 'Save'))),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (mounted && name != null && name.isNotEmpty) {
+      ref.read(projectArchiveProvider.notifier).renameProject(folder, name);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     ref.watch(appLanguageProvider);
@@ -363,6 +393,8 @@ class _SessionsSidebarState extends ConsumerState<SessionsSidebar> {
                   _buildFilterChip('active', _tr('Gestite', 'Managed'), tokens),
                   const SizedBox(width: 6),
                   _buildFilterChip('repo', _tr('Questo repo', 'This repo'), tokens),
+                  const SizedBox(width: 6),
+                  _buildFilterChip('archived', _tr('Archivio', 'Archive'), tokens),
                 ],
               ),
             ),
@@ -373,11 +405,15 @@ class _SessionsSidebarState extends ConsumerState<SessionsSidebar> {
             child: sessionsAsync.when(
               data: (allSessions) {
                 final removedRepos = ref.watch(removedReposProvider);
+                final archive = ref.watch(projectArchiveProvider);
 
                 // Apply search and filter
                 final filtered = allSessions.where((s) {
                   if (_isWorkerSession(s)) return false;
                   final folder = _sessionFolder(s);
+                  final sessionId = (s['id'] ?? '').toString();
+                  final isArchived = archive.projects.contains(folder) || archive.sessions.contains(sessionId);
+                  if ((_filterMode == 'archived') != isArchived) return false;
                   if (_searchQuery.isEmpty && removedRepos.contains(folder)) {
                     return false;
                   }
@@ -393,6 +429,7 @@ class _SessionsSidebarState extends ConsumerState<SessionsSidebar> {
                     final match =
                         id.contains(_searchQuery) ||
                         name.contains(_searchQuery) ||
+                        (archive.names[folder] ?? '').toLowerCase().contains(_searchQuery) ||
                         cwd.contains(_searchQuery) ||
                         preview.contains(_searchQuery);
                     if (!match) return false;
@@ -435,6 +472,7 @@ class _SessionsSidebarState extends ConsumerState<SessionsSidebar> {
                 final pinnedSessions = allSessions.where((s) {
                   if (_isWorkerSession(s)) return false;
                   final folder = _sessionFolder(s);
+                  if (archive.projects.contains(folder) || archive.sessions.contains((s['id'] ?? '').toString())) return false;
                   if (_searchQuery.isEmpty && removedRepos.contains(folder)) {
                     return false;
                   }
@@ -479,7 +517,43 @@ class _SessionsSidebarState extends ConsumerState<SessionsSidebar> {
                   }
                 }
 
-                return ListView.builder(
+                return Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(14, 8, 8, 4),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              _tr('PROGETTI', 'PROJECTS'),
+                              style: TextStyle(
+                                color: tokens.textMuted,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.6,
+                              ),
+                            ),
+                          ),
+                          TextButton.icon(
+                            key: const ValueKey('new-project-session'),
+                            style: TextButton.styleFrom(
+                              visualDensity: VisualDensity.compact,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              foregroundColor: tokens.textSecondary,
+                            ),
+                            onPressed: _creating ? null : _createProject,
+                            icon: const Icon(Icons.add, size: 14),
+                            label: Text(
+                              _tr('Nuovo progetto', 'New project'),
+                              style: const TextStyle(fontSize: 11),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Expanded(
+                      child: ListView.builder(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 8,
                     vertical: 4,
@@ -610,22 +684,13 @@ class _SessionsSidebarState extends ConsumerState<SessionsSidebar> {
                           ],
                         ),
                         title: Text(
-                          _folderName(folder),
+                          archive.names[folder] ?? _folderName(folder),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             color: tokens.textPrimary,
                             fontWeight: FontWeight.w600,
                             fontSize: 12,
-                          ),
-                        ),
-                        subtitle: Text(
-                          folder.isEmpty ? _tr('Cartella non nota', 'Unknown folder') : folder,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: tokens.textMuted,
-                            fontSize: 10,
                           ),
                         ),
                         trailing: Row(
@@ -684,6 +749,8 @@ class _SessionsSidebarState extends ConsumerState<SessionsSidebar> {
                               pos.dy + 1,
                             ),
                             items: [
+                              PopupMenuItem(value: 'rename_project', child: Text(_tr('Rinomina progetto', 'Rename project'))),
+                              PopupMenuItem(value: 'archive_project', child: Text(archive.projects.contains(folder) ? _tr('Ripristina progetto', 'Restore project') : _tr('Archivia progetto', 'Archive project'))),
                               PopupMenuItem(
                                 value: 'instructions',
                                 height: 32,
@@ -770,7 +837,11 @@ class _SessionsSidebarState extends ConsumerState<SessionsSidebar> {
                           );
 
                           if (!context.mounted || action == null) return;
-                          if (action == 'instructions') {
+                          if (action == 'rename_project') {
+                            await _renameProject(folder, archive.names[folder] ?? _folderName(folder));
+                          } else if (action == 'archive_project') {
+                            ref.read(projectArchiveProvider.notifier).toggleProject(folder);
+                          } else if (action == 'instructions') {
                             final activeSid = activeFolders.contains(folder) ? activeId : null;
                             InstructionFileDialog.show(context, folder: folder, sessionId: activeSid);
                           } else if (action == 'new_session') {
@@ -790,9 +861,12 @@ class _SessionsSidebarState extends ConsumerState<SessionsSidebar> {
                         child: folderTile,
                       );
 
-                      return Material(
-                        color: tokens.surface,
-                        child: folderTile,
+                      return Tooltip(
+                        message: folder,
+                        child: Material(
+                          color: tokens.surface,
+                          child: folderTile,
+                        ),
                       );
                     }
 
@@ -806,6 +880,8 @@ class _SessionsSidebarState extends ConsumerState<SessionsSidebar> {
                       isPinned: isPinned,
                       isPinnedSection: row.isPinnedSession,
                       isSelected: isSelected,
+                      isArchived: archive.sessions.contains(id),
+                      onArchive: () => ref.read(projectArchiveProvider.notifier).toggleSession(id),
                       onTap: () async {
                         if (await switchSessionSafely(context, ref, id)) {
                           widget.onSessionSelected?.call();
@@ -838,6 +914,9 @@ class _SessionsSidebarState extends ConsumerState<SessionsSidebar> {
                       ),
                     );
                   },
+                      ),
+                    ),
+                  ],
                 );
               },
               loading: () => Center(
@@ -1024,6 +1103,8 @@ class _SessionTile extends ConsumerWidget {
   final bool isPinned;
   final bool isPinnedSection;
   final bool isSelected;
+  final bool isArchived;
+  final VoidCallback onArchive;
   final VoidCallback onTap;
   final VoidCallback onPinToggle;
   final void Function(String id, String name) onRename;
@@ -1038,6 +1119,8 @@ class _SessionTile extends ConsumerWidget {
     required this.isPinned,
     required this.isPinnedSection,
     required this.isSelected,
+    required this.isArchived,
+    required this.onArchive,
     required this.onTap,
     required this.onPinToggle,
     required this.onRename,
@@ -1134,6 +1217,12 @@ class _SessionTile extends ConsumerWidget {
             ),
           ],
         ),
+      ),
+      PopupMenuItem(
+        value: 'archive',
+        child: Text(isArchived
+            ? (isItalian ? 'Ripristina sessione' : 'Restore session')
+            : (isItalian ? 'Archivia sessione' : 'Archive session')),
       ),
       PopupMenuItem(
         value: 'tree',
@@ -1261,6 +1350,8 @@ class _SessionTile extends ConsumerWidget {
       onInstructions?.call(id, folder);
     } else if (action == 'rename') {
       onRename(id, name);
+    } else if (action == 'archive') {
+      onArchive();
     } else if (action == 'tree') {
       onTree(id);
     } else if (action == 'clone') {
@@ -1300,7 +1391,7 @@ class _SessionTile extends ConsumerWidget {
       ),
       dense: true,
       visualDensity: VisualDensity.compact,
-      minVerticalPadding: 2,
+      minVerticalPadding: 0,
       minLeadingWidth: 14,
       contentPadding: const EdgeInsets.symmetric(
         horizontal: 8,
@@ -1332,7 +1423,7 @@ class _SessionTile extends ConsumerWidget {
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 color: isSelected ? tokens.displayText : tokens.textPrimary,
-                fontSize: 14,
+                fontSize: 13,
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
               ),
             ),
@@ -1346,17 +1437,6 @@ class _SessionTile extends ConsumerWidget {
             ),
           ],
         ],
-      ),
-      subtitle: Text(
-        preview != null && preview.isNotEmpty ? preview : cwd,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: TextStyle(
-          color: isSelected
-              ? tokens.displayText.withValues(alpha: 0.8)
-              : tokens.textMuted,
-          fontSize: 12,
-        ),
       ),
       trailing: PopupMenuButton<String>(
         tooltip: isItalian ? 'Azioni sessione' : 'Session actions',
@@ -1413,7 +1493,10 @@ class _SessionTile extends ConsumerWidget {
           _handleAction(action, id, name, folder);
         }
       },
-      child: card,
+      child: Tooltip(
+        message: preview != null && preview.isNotEmpty ? preview : cwd,
+        child: card,
+      ),
     );
 
     if (isWorking) {
@@ -1421,7 +1504,7 @@ class _SessionTile extends ConsumerWidget {
         padding: EdgeInsets.only(
           left: isPinnedSection ? 4 : 14,
           right: 4,
-          bottom: 3,
+          bottom: 1,
         ),
         child: ShimmerBorder(
           isActive: true,
@@ -1436,7 +1519,7 @@ class _SessionTile extends ConsumerWidget {
       padding: EdgeInsets.only(
         left: isPinnedSection ? 4 : 14,
         right: 4,
-        bottom: 3,
+        bottom: 1,
       ),
       child: interactiveCard,
     );

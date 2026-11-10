@@ -30,7 +30,7 @@ class ToolTimeline extends StatelessWidget {
               onExpansionChanged: onCardExpansionChanged,
             ),
             if (i < toolCalls.length - 1)
-              const SizedBox(height: 4),
+              const SizedBox(height: 1),
           ],
         ],
       ),

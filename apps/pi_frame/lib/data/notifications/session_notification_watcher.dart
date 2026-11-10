@@ -1,4 +1,6 @@
 import 'dart:async';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -8,6 +10,7 @@ import '../language/language_settings.dart';
 import '../daemon/daemon_providers.dart';
 import '../../features/sessions_sidebar/pinned_sessions_provider.dart';
 import 'notification_providers.dart';
+import 'taskbar_status_reporter.dart';
 
 class SessionNotificationWatcher extends ConsumerStatefulWidget {
   const SessionNotificationWatcher({super.key});
@@ -22,8 +25,9 @@ class _SessionNotificationWatcherState
   @override
   void initState() {
     super.initState();
-    ref.read(desktopNotificationServiceProvider).onNotificationClicked =
-        (sessionId) {
+    ref
+        .read(desktopNotificationServiceProvider)
+        .onNotificationClicked = (sessionId) {
       if (mounted) {
         ref.read(activeSessionIdProvider.notifier).state = sessionId;
       }
@@ -63,6 +67,78 @@ class _SessionWatcherItemState extends ConsumerState<_SessionWatcherItem> {
   final Set<String> _handledEntryIds = <String>{};
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _updateTaskbar(ref.read(sessionStateFamily(widget.sessionId)));
+    });
+  }
+
+  void _updateTaskbar(SessionState session) {
+    final working = {...ref.read(taskbarWorkingSessionsProvider)};
+    if (session.isStreaming) {
+      working.add(widget.sessionId);
+    } else {
+      working.remove(widget.sessionId);
+    }
+    ref.read(taskbarWorkingSessionsProvider.notifier).state = working;
+    final hasError =
+        session.agentStatus == AgentStatus.error ||
+        session.agentStatus == AgentStatus.workerError;
+    final errors = {...ref.read(taskbarErrorSessionsProvider)};
+    if (hasError) {
+      errors.add(widget.sessionId);
+    } else {
+      errors.remove(widget.sessionId);
+    }
+    ref.read(taskbarErrorSessionsProvider.notifier).state = errors;
+    final needsAttention = session.pendingUiRequests.any((request) {
+      final method = request['method']?.toString();
+      return request['dialog'] == true ||
+          method == 'confirm' ||
+          method == 'select' ||
+          method == 'input' ||
+          method == 'editor';
+    });
+    final attention = {...ref.read(taskbarAttentionSessionsProvider)};
+    if (needsAttention) {
+      attention.add(widget.sessionId);
+    } else {
+      attention.remove(widget.sessionId);
+    }
+    ref.read(taskbarAttentionSessionsProvider.notifier).state = attention;
+    final questions = [
+      ...ref
+          .read(taskbarPendingQuestionsProvider)
+          .where((question) => question['sessionId'] != widget.sessionId),
+      ...session.pendingUiRequests
+          .where((request) {
+            final method = request['method']?.toString();
+            final isSecretInput =
+                method == 'input' &&
+                (request['placeholder']?.toString() ?? '').startsWith(
+                  'piframe-secret:',
+                );
+            return !isSecretInput &&
+                (request['dialog'] == true ||
+                    method == 'confirm' ||
+                    method == 'select' ||
+                    method == 'input' ||
+                    method == 'editor');
+          })
+          .map(
+            (request) => <String, dynamic>{
+              ...request,
+              'sessionId': widget.sessionId,
+              'sessionName': session.sessionName ?? widget.sessionId,
+            },
+          ),
+    ];
+    ref.read(taskbarPendingQuestionsProvider.notifier).state = questions;
+  }
+
+  @override
   Widget build(BuildContext context) {
     ref.listen(
       sessionStateFamily(widget.sessionId).select(
@@ -76,10 +152,25 @@ class _SessionWatcherItemState extends ConsumerState<_SessionWatcherItem> {
       ),
       (prev, next) {
         final session = ref.read(sessionStateFamily(widget.sessionId));
+        _updateTaskbar(session);
         _checkNotifications(prev, next, session);
       },
     );
     return const SizedBox.shrink();
+  }
+
+  @override
+  void dispose() {
+    final working = {...ref.read(taskbarWorkingSessionsProvider)}
+      ..remove(widget.sessionId);
+    ref.read(taskbarWorkingSessionsProvider.notifier).state = working;
+    final attention = {...ref.read(taskbarAttentionSessionsProvider)}
+      ..remove(widget.sessionId);
+    ref.read(taskbarAttentionSessionsProvider.notifier).state = attention;
+    final errors = {...ref.read(taskbarErrorSessionsProvider)}
+      ..remove(widget.sessionId);
+    ref.read(taskbarErrorSessionsProvider.notifier).state = errors;
+    super.dispose();
   }
 
   Future<void> _checkNotifications(
@@ -113,30 +204,35 @@ class _SessionWatcherItemState extends ConsumerState<_SessionWatcherItem> {
           if (reqId.isNotEmpty && !_handledUiRequestIds.contains(reqId)) {
             _handledUiRequestIds.add(reqId);
             final sessionName = next.sessionName ?? widget.sessionId;
-            final title = req['title']?.toString() ??
+            final title =
+                req['title']?.toString() ??
                 (isItalian ? 'Attenzione richiesta' : 'Attention required');
-            final message = req['message']?.toString() ??
+            final message =
+                req['message']?.toString() ??
                 (isItalian
                     ? 'L\'agente richiede una tua risposta o scelta.'
                     : 'The agent needs your response or choice.');
-            unawaited(service.showNotification(
-              title: isItalian
-                  ? 'Richiesta attenzione · $sessionName'
-                  : 'Attention required · $sessionName',
-              body: '$title: $message',
-              sessionId: widget.sessionId,
-            ));
+            if (defaultTargetPlatform != TargetPlatform.windows) {
+              unawaited(
+                service.showNotification(
+                  title: isItalian
+                      ? 'Richiesta attenzione · $sessionName'
+                      : 'Attention required · $sessionName',
+                  body: '$title: $message',
+                  sessionId: widget.sessionId,
+                ),
+              );
+            }
           }
         }
       }
     }
 
     // 2. Agent completed an answer
-    final wasWorking = prev != null &&
-        (prev.$1 == AgentStatus.working ||
-            prev.$2 ||
-            prev.$3);
-    final isSettledNow = nextSummary.$1 != AgentStatus.working &&
+    final wasWorking =
+        prev != null && (prev.$1 == AgentStatus.working || prev.$2 || prev.$3);
+    final isSettledNow =
+        nextSummary.$1 != AgentStatus.working &&
         !nextSummary.$2 &&
         !nextSummary.$3;
 
@@ -149,18 +245,20 @@ class _SessionWatcherItemState extends ConsumerState<_SessionWatcherItem> {
         final rawText = lastEntry.text.trim();
         final preview = rawText.isNotEmpty
             ? (rawText.length > 120
-                ? '${rawText.substring(0, 120)}...'
-                : rawText)
+                  ? '${rawText.substring(0, 120)}...'
+                  : rawText)
             : (isItalian
-                ? 'L\'agente ha completato la risposta.'
-                : 'The agent has finished its response.');
-        unawaited(service.showNotification(
-          title: isItalian
-              ? 'Risposta completata · $sessionName'
-              : 'Response complete · $sessionName',
-          body: preview,
-          sessionId: widget.sessionId,
-        ));
+                  ? 'L\'agente ha completato la risposta.'
+                  : 'The agent has finished its response.');
+        unawaited(
+          service.showNotification(
+            title: isItalian
+                ? 'Risposta completata · $sessionName'
+                : 'Response complete · $sessionName',
+            body: preview,
+            sessionId: widget.sessionId,
+          ),
+        );
       }
     }
   }

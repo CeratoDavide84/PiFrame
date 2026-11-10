@@ -10,6 +10,7 @@ import 'package:window_manager/window_manager.dart';
 import 'package:file_selector/file_selector.dart';
 
 import '../../data/daemon/daemon_providers.dart';
+import '../../data/goal/session_goal_provider.dart';
 import '../../data/language/language_settings.dart';
 import '../../domain/session/agent_status.dart';
 import '../../domain/session/attachment_model.dart';
@@ -20,6 +21,7 @@ import 'composer_draft.dart';
 import 'copilot_file_picker.dart';
 import 'file_mention_menu.dart';
 import 'slash_menu.dart';
+import 'session_goal_banner.dart';
 import '../../ui/precision.dart';
 import '../../ui/shimmer_border.dart';
 import '../dialogs/extension_ui_dialog.dart';
@@ -257,7 +259,18 @@ class _ComposerState extends ConsumerState<Composer> {
     final cmds = await notifier.getCommands();
     if (mounted) {
       setState(() {
-        _availableCommands = cmds;
+        _availableCommands = [
+          ...cmds,
+          {
+            'name': 'goal',
+            'description': _tr(
+              'Imposta o aggiorna il goal di questa sessione',
+              'Set or update this session goal',
+            ),
+            'argumentHint': '[obiettivo]',
+            'source': 'piframe',
+          },
+        ];
       });
     }
   }
@@ -404,6 +417,47 @@ class _ComposerState extends ConsumerState<Composer> {
         ref.read(composerSendingProvider(widget.sessionId))) {
       return;
     }
+    final goalMatch = RegExp(
+      r'^/goal(?:\s+(.*))?$',
+      caseSensitive: false,
+    ).firstMatch(text);
+    if (goalMatch != null) {
+      if (attachments.isNotEmpty) {
+        FrameSnackBar.show(
+          context,
+          message: _tr(
+            'Rimuovi gli allegati prima di impostare un goal.',
+            'Remove attachments before setting a goal.',
+          ),
+        );
+        return;
+      }
+      try {
+        final value = goalMatch.group(1)?.trim() ?? '';
+        if (value.toLowerCase() == 'clear' || value.toLowerCase() == 'remove') {
+          await ref
+              .read(sessionGoalProvider(widget.sessionId).notifier)
+              .setGoal(null);
+        } else if (value.isEmpty) {
+          await _showGoalDialog();
+        } else {
+          await ref
+              .read(sessionGoalProvider(widget.sessionId).notifier)
+              .setGoal(value);
+        }
+        if (mounted) _controller.clear();
+      } catch (error) {
+        if (mounted)
+          FrameSnackBar.show(
+            context,
+            message: _tr(
+              'Salvataggio goal non riuscito: $error',
+              'Could not save goal: $error',
+            ),
+          );
+      }
+      return;
+    }
     final builtin = _parsePiBuiltin(text);
     if (builtin != null) {
       final sending = ref.read(
@@ -427,7 +481,13 @@ class _ComposerState extends ConsumerState<Composer> {
         }
       } catch (error) {
         if (mounted) {
-          FrameSnackBar.show(context, message: _tr('Comando non riuscito: $error', 'Command failed: $error'));
+          FrameSnackBar.show(
+            context,
+            message: _tr(
+              'Comando non riuscito: $error',
+              'Command failed: $error',
+            ),
+          );
         }
       } finally {
         if (sending.mounted) sending.state = false;
@@ -446,9 +506,13 @@ class _ComposerState extends ConsumerState<Composer> {
     );
     sending.state = true;
     try {
-      final fullPrompt = attachments.isNotEmpty
+      final userPrompt = attachments.isNotEmpty
           ? '${encodeAttachmentsTag(attachments)}${text.isNotEmpty ? '\n$text' : ''}'
           : text;
+      final goal = ref.read(sessionGoalProvider(widget.sessionId));
+      final fullPrompt = goal == null
+          ? userPrompt
+          : '[PiFrame session goal: $goal]\nTreat this as the persistent objective for this session. Keep it in mind while answering and working.\n\n$userPrompt';
 
       final isPrompt = streamingBehavior == null;
       if (isPrompt) {
@@ -480,6 +544,53 @@ class _ComposerState extends ConsumerState<Composer> {
     } finally {
       if (sending.mounted) sending.state = false;
     }
+  }
+
+  Future<void> _showGoalDialog() async {
+    final goals = ref.read(sessionGoalProvider(widget.sessionId));
+    final controller = TextEditingController(text: goals);
+    final saved = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(_tr('Goal della sessione', 'Session goal')),
+        content: SizedBox(
+          width: 460,
+          child: TextField(
+            controller: controller,
+            autofocus: true,
+            minLines: 2,
+            maxLines: 5,
+            decoration: InputDecoration(
+              hintText: _tr(
+                'Cosa deve completare l’agente?',
+                'What should the agent complete?',
+              ),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: Text(_tr('Annulla', 'Cancel')),
+          ),
+          if (goals != null)
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, ''),
+              child: Text(_tr('Rimuovi goal', 'Clear goal')),
+            ),
+          FilledButton(
+            onPressed: () =>
+                Navigator.pop(dialogContext, controller.text.trim()),
+            child: Text(_tr('Salva goal', 'Save goal')),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (saved != null && mounted)
+      await ref
+          .read(sessionGoalProvider(widget.sessionId).notifier)
+          .setGoal(saved);
   }
 
   Future<void> _continueAmbiguousSession() async {
@@ -564,7 +675,12 @@ class _ComposerState extends ConsumerState<Composer> {
     if (state.files.isEmpty) {
       FrameSnackBar.show(
         context,
-        message: state.error ?? _tr('Nessun file disponibile nella sessione.', 'No files available in this session.'),
+        message:
+            state.error ??
+            _tr(
+              'Nessun file disponibile nella sessione.',
+              'No files available in this session.',
+            ),
       );
       return;
     }
@@ -675,7 +791,10 @@ class _ComposerState extends ConsumerState<Composer> {
       if (mounted) {
         FrameSnackBar.show(
           context,
-          message: _tr('Interruzione non riuscita: $error', 'Interrupt failed: $error'),
+          message: _tr(
+            'Interruzione non riuscita: $error',
+            'Interrupt failed: $error',
+          ),
         );
       }
       return;
@@ -795,7 +914,10 @@ class _ComposerState extends ConsumerState<Composer> {
         if (!mounted) return;
         FrameSnackBar.show(
           context,
-          message: _tr('Ultimo messaggio dell’agente copiato.', 'Last agent message copied.'),
+          message: _tr(
+            'Ultimo messaggio dell’agente copiato.',
+            'Last agent message copied.',
+          ),
         );
         return;
       case 'name':
@@ -1024,7 +1146,12 @@ class _ComposerState extends ConsumerState<Composer> {
                     'Model: ${state.currentModel ?? '—'}',
                   ),
                 ),
-                Text(_tr('Livello di ragionamento: ${state.currentThinkingLevel ?? '—'}', 'Thinking level: ${state.currentThinkingLevel ?? '—'}')),
+                Text(
+                  _tr(
+                    'Livello di ragionamento: ${state.currentThinkingLevel ?? '—'}',
+                    'Thinking level: ${state.currentThinkingLevel ?? '—'}',
+                  ),
+                ),
                 const SizedBox(height: 12),
                 for (final entry in stats.entries)
                   Text('${entry.key}: ${entry.value}'),
@@ -1739,6 +1866,7 @@ class _ComposerState extends ConsumerState<Composer> {
                     : Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
+                          SessionGoalBanner(sessionId: widget.sessionId),
                           // File Mention overlay if active
                           if (_showFileMentionMenu &&
                               _matchingMentionFiles.isNotEmpty)

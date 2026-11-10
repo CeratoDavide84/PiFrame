@@ -344,6 +344,9 @@ class _ToolCardState extends State<ToolCard> {
               style: TextButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 1),
                 alignment: Alignment.centerLeft,
+                visualDensity: VisualDensity.compact,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                minimumSize: const Size(0, 27),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(tokens.radiusSm),
                 ),
@@ -351,7 +354,7 @@ class _ToolCardState extends State<ToolCard> {
               child: Padding(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 4,
-                  vertical: 2.5,
+                    vertical: 1.5,
                 ),
                 child: Row(
                   children: [

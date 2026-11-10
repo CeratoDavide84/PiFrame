@@ -185,6 +185,7 @@ class _TranscriptViewState extends ConsumerState<TranscriptView> {
 
   bool _isProgrammaticScroll = false;
   String? _lastHandledUiRequestId;
+  final Set<String> _forkingEntryIds = <String>{};
 
   static const int _initialVisibleCount = 35;
   static const int _pageSize = 250;
@@ -2512,16 +2513,18 @@ class _TranscriptViewState extends ConsumerState<TranscriptView> {
   }
 
   Future<void> _handleFork(String entryId) async {
-    final client = ref.read(pcpClientProvider);
-    if (client == null) return;
-    if (!await resolveDirtyRepository(
-      context,
-      ref,
-      ref.read(activeSessionIdProvider),
-    )) {
-      return;
-    }
+    if (_forkingEntryIds.contains(entryId)) return;
+    setState(() => _forkingEntryIds.add(entryId));
     try {
+      final client = ref.read(pcpClientProvider);
+      if (client == null) {
+        throw StateError(_tr('Daemon non connesso.', 'Daemon is not connected.'));
+      }
+      if (!await resolveDirtyRepository(
+        context,
+        ref,
+        ref.read(activeSessionIdProvider),
+      )) return;
       final res = await client.forkSession(widget.sessionId, entryId: entryId);
       if (!mounted || !context.mounted) return;
       final data = res['data'] as Map<String, dynamic>? ?? res;
@@ -2534,22 +2537,25 @@ class _TranscriptViewState extends ConsumerState<TranscriptView> {
         return;
       }
       final newSid = data['sessionId'] as String? ?? data['id'] as String?;
-      if (newSid != null) {
-        if (!await switchSessionSafely(context, ref, newSid)) return;
-        ref.invalidate(sessionListProvider);
-        if (!mounted) return;
-        FrameSnackBar.show(
-          context,
-          message: _tr('Nuovo ramo avviato: $newSid', 'New branch started: $newSid'),
-        );
+      if (newSid == null) {
+        throw StateError(_tr('Il fork non ha restituito una nuova sessione.', 'The fork did not return a new session.'));
       }
+      if (!await switchSessionSafely(context, ref, newSid)) return;
+      ref.invalidate(sessionListProvider);
+      if (!mounted) return;
+      FrameSnackBar.show(
+        context,
+        message: _tr('Nuovo ramo avviato.', 'New branch started.'),
+      );
     } catch (e) {
       if (!mounted) return;
       FrameSnackBar.show(
         context,
-        message: _tr('Errore fork: $e', 'Fork failed: $e'),
+        message: _tr('Errore nel creare il nuovo ramo: $e', 'Could not create the new branch: $e'),
         backgroundColor: context.tokens.danger,
       );
+    } finally {
+      if (mounted) setState(() => _forkingEntryIds.remove(entryId));
     }
   }
 
@@ -2620,36 +2626,36 @@ class _TranscriptViewState extends ConsumerState<TranscriptView> {
                   ],
                 ),
                 Flexible(
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(4),
-                    onTap: () => _handleFork(entry.id),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 4,
-                        vertical: 2,
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton.icon(
+                      key: ValueKey('branch-from-${entry.id}'),
+                      style: TextButton.styleFrom(
+                        visualDensity: VisualDensity.compact,
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        foregroundColor: tokens.accent,
                       ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.call_split,
-                            size: 12,
-                            color: tokens.textSecondary,
-                          ),
-                          const SizedBox(width: 4),
-                          Flexible(
-                            child: Text(
-                              _tr('Riparti da qui', 'Branch from here'),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                color: tokens.textSecondary,
-                                fontSize: 10,
-                                fontWeight: FontWeight.w600,
+                      onPressed: _forkingEntryIds.contains(entry.id)
+                          ? null
+                          : () => _handleFork(entry.id),
+                      icon: _forkingEntryIds.contains(entry.id)
+                          ? SizedBox(
+                              width: 12,
+                              height: 12,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 1.5,
+                                color: tokens.accent,
                               ),
-                            ),
-                          ),
-                        ],
+                            )
+                          : const Icon(Icons.call_split, size: 13),
+                      label: Text(
+                        _forkingEntryIds.contains(entry.id)
+                            ? _tr('Creazione…', 'Creating…')
+                            : _tr('Riparti da qui', 'Branch from here'),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
                       ),
                     ),
                   ),
@@ -2666,7 +2672,15 @@ class _TranscriptViewState extends ConsumerState<TranscriptView> {
             ],
             if (cleanText.isNotEmpty) ...[
               const SizedBox(height: 8),
-              RichContent(text: cleanText, cwd: cwd),
+              GestureDetector(
+                key: sendError == null
+                    ? null
+                    : ValueKey('failed-user-message-${entry.id}'),
+                onDoubleTap: sendError == null
+                    ? null
+                    : () => _restoreFailedPrompt(entry.id),
+                child: RichContent(text: cleanText, cwd: cwd),
+              ),
             ],
             if (sendError != null) ...[
               const SizedBox(height: 8),
@@ -2702,11 +2716,7 @@ class _TranscriptViewState extends ConsumerState<TranscriptView> {
             Expanded(
               child: Align(
                 alignment: Alignment.centerLeft,
-                child: GestureDetector(
-                  key: ValueKey('failed-user-message-${entry.id}'),
-                  onDoubleTap: () => _restoreFailedPrompt(entry.id),
-                  child: bubble,
-                ),
+                child: bubble,
               ),
             ),
             IconButton(

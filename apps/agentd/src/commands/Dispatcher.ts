@@ -1075,12 +1075,10 @@ export class Dispatcher {
         }
         if (!session) throw new Error(`Session ${sessionId} not found`);
         if (session.readOnly) throw new Error('External session is read-only. Duplicate it first.');
-        session.name = payload.name;
-        if (session.worker) {
-          try {
-            await session.worker.send({ command: 'set_session_name', arguments: { name: payload.name } });
-          } catch (_) {}
-        }
+        if (typeof payload.name !== 'string' || !payload.name.trim()) throw new Error('Session name is required');
+        const worker = await this.registry.ensureWorkerForSession(sessionId);
+        await worker.send({ command: 'set_session_name', arguments: { name: payload.name.trim() } });
+        session.name = payload.name.trim();
         return { name: session.name };
       }
 

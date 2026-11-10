@@ -28,6 +28,7 @@ import '../features/command_palette/command_palette.dart';
 import '../features/settings/settings_view.dart';
 import '../data/notifications/notification_providers.dart';
 import '../data/notifications/session_notification_watcher.dart';
+import '../data/notifications/taskbar_status_reporter.dart';
 import '../features/settings/updates_watcher.dart';
 import '../data/update/update_providers.dart';
 import '../features/session_changes/session_changes_provider.dart';
@@ -379,6 +380,7 @@ class _AppShellState extends ConsumerState<AppShell>
         body: Stack(
           children: [
             const SessionNotificationWatcher(),
+            const TaskbarStatusReporter(),
             const UpdatesPeriodicWatcher(),
             const StartupUpdatesWatcher(),
             SafeArea(

@@ -209,3 +209,17 @@ Nel dettaglio costi della sessione, raggiungibile dall'indicatore di costo nella
 ## 9. Utilizzo nelle impostazioni
 
 La scheda **Impostazioni → Utilizzo** aggrega le sessioni Pi locali degli ultimi 7 o 30 giorni (UTC): costi riportati, token, messaggi assistente, chiamate agli strumenti, grafici per modello e strumento e dettaglio per sessione. I file delle sessioni figlie sono conteggiati separatamente; sono inclusi i rami conservati nei file. I messaggi privi di data e i file non leggibili sono esclusi. I costi non disponibili non vengono stimati: l'asterisco segnala costi o token parziali. Crediti, limiti e fatturazione del provider non sono accessibili tramite questi dati. La sezione legge i dati localmente e richiede il daemon aggiornato.
+
+## 10. Goal persistenti e stato nella barra delle applicazioni
+
+Imposta un obiettivo di sessione dalla chat con `/goal testo dell'obiettivo` oppure `/goal` per aprire il modulo. Il goal resta salvato localmente per sessione in `~/.piframe/goals.json` (su Windows in `%APPDATA%/PiFrame/goals.json`), compare sopra il compositore e viene incluso nei prompt finché non lo rimuovi con `/goal clear` o dall'icona sulla barra del goal.
+
+Su Windows l'icona nella barra delle applicazioni mostra, su fondo trasparente, un anello blu animato mentre una sessione monitorata lavora. Le richieste in attesa appaiono come un badge giallo con il numero di domande; il conteggio resta visibile anche durante l'elaborazione. Gli errori usano il badge rosso. La priorità è errore, richieste in attesa, lavoro in corso. Quando arriva una domanda compare anche un popup vicino all'area di notifica: mostra sessione e testo, consente di rispondere a input, conferme e scelte singole oppure di aprire PiFrame per le richieste più articolate. Le icone overlay dipendono dal supporto della barra delle applicazioni; su altri sistemi restano disponibili le notifiche desktop già supportate da PiFrame.
+
+## Tema, progetti e densità della cronologia
+
+In **Impostazioni → Aspetto** è disponibile il tema scuro **Codex Dark**, selezionabile senza cambiare il tema predefinito. La barra laterale raggruppa le sessioni per cartella di progetto; **Nuovo progetto** crea la prima sessione scegliendo una cartella, e le sessioni successive si aggiungono con il pulsante + del progetto. Le righe delle sessioni e delle attività sono compatte; il testo di anteprima resta accessibile al passaggio del mouse.
+
+## Nomi e archivio
+
+Dal menu del progetto puoi rinominarlo o archiviarlo; il nome è locale e non modifica la cartella. Dal menu di una sessione puoi rinominarla o archiviarla separatamente. Il filtro Archivio permette di ripristinare progetti e sessioni. Le preferenze sono salvate localmente in project_archive.json nella cartella .piframe; nel browser valgono solo per la sessione corrente. Le sessioni esterne in sola lettura devono essere duplicate prima della rinomina.

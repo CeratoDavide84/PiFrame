@@ -591,3 +591,7 @@ Nelle installazioni pulite di Windows (a differenza delle macchine degli svilupp
 ## Il pannello repository non trova un repository Git
 
 Il controllo del repository può fallire anche quando la cartella è corretta: il daemon potrebbe non trovare Git nel proprio `PATH`, oppure Git potrebbe non riuscire a controllare la cartella. Verifica che la directory della sessione sia nel repository e che `git` sia disponibile nell'ambiente del daemon. Su Windows, se necessario, aggiungi la cartella `cmd` dell'installazione di Git al `Path` utente. Dopo aver modificato il `PATH`, riavvia PiFrame e il daemon quando non ci sono sessioni Pi attive: i processi già avviati mantengono l'ambiente precedente. Il pannello ora presenta queste possibilità invece di affermare che la cartella non è un repository.
+
+## Sessione esterna in sola lettura
+
+Se l'invio mostra External session is read-only, PiFrame ha rilevato che la sessione appartiene a un Pi aperto nel terminale o non può verificarne il proprietario. Usa **Riparti da qui** sul messaggio utente da cui vuoi proseguire: il pulsante crea un nuovo ramo, mostra l'avanzamento e segnala gli errori del daemon. I comandi non vengono inviati alla sessione esterna finché il ramo non è stato creato e selezionato.

@@ -23,6 +23,65 @@ class ThemeRepository {
       version: '1.0.0',
       variant: 'dark',
     );
+    final codexDarkBuiltIn = ThemeSpec(
+      id: 'codex-dark',
+      name: 'Codex Dark',
+      author: 'PiFrame',
+      version: '1.0.0',
+      variant: 'dark',
+      extendsTheme: 'piframe-dark',
+      rawColors: {
+        'background': '#171717',
+        'chassis': '#1b1b1b',
+        'displaySurface': '#212121',
+        'displayText': '#f2f2f2',
+        'surface': '#1d1d1d',
+        'surfaceElevated': '#252525',
+        'overlay': '#000000aa',
+        'border': '#343434',
+        'borderStrong': '#484848',
+        'textPrimary': '#f0f0f0',
+        'textSecondary': '#b7b7b7',
+        'textMuted': '#888888',
+        'accent': '#6aa5ff',
+        'accentContrast': '#101010',
+        'focusRing': '#6aa5ff',
+        'success': '#75c995',
+        'warning': '#e7b864',
+        'danger': '#f07b72',
+        'info': '#7eb6ff',
+        'agentWorking': '#7eb6ff',
+        'agentRetrying': '#e7b864',
+        'agentCompacting': '#6aa5ff',
+        'agentSettled': '#75c995',
+        'agentAwaitingUser': '#e7b864',
+        'agentError': '#f07b72',
+        'userBubble': '#303030',
+        'thinking': '#9b9b9b',
+        'diffAddedBg': '#75c99526',
+        'diffAddedFg': '#75c995',
+        'diffRemovedBg': '#f07b7226',
+        'diffRemovedFg': '#f07b72',
+        'diffContextFg': '#a0a0a0',
+      },
+      rawSyntax: {
+        'keyword': '#8ab4f8',
+        'string': '#a8d5a2',
+        'number': '#e6c07b',
+        'comment': '#858585',
+        'function': '#d2a8ff',
+        'type': '#78c4c4',
+        'variable': '#e6e6e6',
+        'operator': '#b7b7b7',
+        'punctuation': '#999999',
+        'invalid': '#f07b72',
+      },
+      rawTypography: {
+        'uiFontFamily': 'Segoe UI',
+        'headingFontFamily': 'Segoe UI',
+      },
+      rawRadii: {'sm': 6.0, 'md': 9.0, 'lg': 12.0, 'pill': 999.0},
+    );
     final mochaBuiltIn = ThemeSpec(
       id: 'catppuccin-mocha',
       name: 'Catppuccin Mocha',
@@ -136,6 +195,7 @@ class ThemeRepository {
     );
 
     _rawThemes['piframe-dark'] = darkBuiltIn;
+    _rawThemes['codex-dark'] = codexDarkBuiltIn;
     _rawThemes['catppuccin-mocha'] = mochaBuiltIn;
     _rawThemes['nord-dark'] = nordDarkBuiltIn;
     _rawThemes['piframe-light'] = lightBuiltIn;
